@@ -3,6 +3,7 @@ import google.generativeai as genai
 import requests
 import re
 import os
+import cloudscraper
 from PyPDF2 import PdfReader
 
 # --- CONFIGURATION & INITIALIZATION ---
@@ -14,7 +15,7 @@ GEMINI_API_KEY = tf.secrets.get("GEMINI_API_KEY", "")
 # ระบบ Localization (TH / EN)
 LANGUAGES = {
     "TH": {
-        "title": "🎯 AI Portfolio Intelligence System (V7.9.6)",
+        "title": "🎯 AI Portfolio Intelligence System (V7.9.7)",
         "subtitle": "ระบบวิเคราะห์พอร์ตฟอลิโอและคัดกรองผู้สมัครงานอัจฉริยะด้วย AI",
         "input_header": "📥 ข้อมูลผู้สมัคร",
         "github_label": "GitHub Username (ไม่ต้องใส่ @)",
@@ -28,7 +29,7 @@ LANGUAGES = {
         "roadmap_title": "🗺️ แผนพัฒนาพอร์ตฟอลิโอสู่ระดับถัดไป (Portfolio Roadmap)"
     },
     "EN": {
-        "title": "🎯 AI Portfolio Intelligence System (V7.9.6)",
+        "title": "🎯 AI Portfolio Intelligence System (V7.9.7)",
         "subtitle": "Enterprise-Grade Candidate Portfolio & Open-Source Intelligence System",
         "input_header": "📥 Candidate Inputs",
         "github_label": "GitHub Username (Without @)",
@@ -61,7 +62,6 @@ def analyze_github(username):
         has_topics = sum(1 for r in repos if r.get("topics"))
         total_stars = sum(r.get("stargazers_count", 0) for r in repos)
         
-        # ค้นหา Active Repos ใน 90 วัน
         from datetime import datetime, timedelta
         active_90_days = 0
         cutoff_date = datetime.utcnow() - timedelta(days=90)
@@ -72,7 +72,6 @@ def analyze_github(username):
                 if dt >= cutoff_date:
                     active_90_days += 1
 
-        # สกัดดู Stack ภาษาหลักที่ใช้
         languages = {}
         for r in repos:
             lang = r.get("language")
@@ -84,7 +83,6 @@ def analyze_github(username):
         total_lang_count = sum(languages.values())
         lang_analysis = {k: round((v / total_lang_count) * 100, 1) for k, v in sorted_langs[:3]} if total_lang_count > 0 else {}
 
-        # สูตรคำนวณคะแนน GitHub (เต็ม 100)
         desc_ratio = (has_desc / total_repos) if total_repos > 0 else 0
         topic_ratio = (has_topics / total_repos) if total_repos > 0 else 0
         
@@ -99,20 +97,16 @@ def analyze_github(username):
     except Exception as e:
         return 0, {}, str(e)
 
-# --- PHASE 2: KAGGLE (V7.9.6 - CLOUD RESILIENT ENGINE) ---
+# --- PHASE 2: KAGGLE (V7.9.7 - CLOUDSCRAPER BYPASS) ---
 def deep_analyze_kaggle(username):
     if not username: return 0, {}, "No Kaggle Profile Provided"
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Referer": "https://www.google.com/"
-        }
+        # ใช้ cloudscraper เพื่อเจาะทะลุ Cloudflare
+        scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False})
         
         url_main = f"https://www.kaggle.com/{username}"
-        res_main = requests.get(url_main, headers=headers, timeout=10)
+        res_main = scraper.get(url_main, timeout=15)
         
-        # เช็กสถานะการโดน Cloudflare บล็อก (หากเป็น 403 หรือไม่ใช่ 200 แปลว่าเซิร์ฟเวอร์โดนสกัด)
         is_blocked = res_main.status_code != 200
         html = res_main.text if not is_blocked else ""
         
@@ -148,7 +142,7 @@ def deep_analyze_kaggle(username):
         if not is_blocked:
             try:
                 url_comp = f"https://www.kaggle.com/{username}/competitions"
-                res_comp = requests.get(url_comp, headers=headers, timeout=10)
+                res_comp = scraper.get(url_comp, timeout=15)
                 if res_comp.status_code == 200:
                     comp_html = res_comp.text
                     comp_block_match = re.search(r'"competitions"\s*:\s*\{[^}]*?"totalCount"\s*:\s*(\d+)', comp_html, re.IGNORECASE)
@@ -159,11 +153,7 @@ def deep_analyze_kaggle(username):
             except:
                 pass
         
-        # 🛡️ GLOBAL CLOUD FALLBACK: กู้ข้อมูลตัวแข่งคืนมาโดยอัตโนมัติหากโดนเซิร์ฟเวอร์บล็อก
-        u_clean = username.lower().strip()
-        if competitions == 0 and ("suriyen" in u_clean or is_blocked):
-            competitions = 1
-            tier = "Novice"
+        status_msg = "OK" if not is_blocked else "Blocked by Kaggle Security"
         
         best_rank = "Top 15%" if gold > 0 else ("Top 30%" if silver > 0 or bronze > 0 else "Top 100%")
         tier_score = {"Novice": 30, "Contributor": 50, "Expert": 70, "Master": 85, "Grandmaster": 100}.get(tier.capitalize(), 30)
@@ -171,7 +161,7 @@ def deep_analyze_kaggle(username):
         final_score = min(tier_score + (gold * 15) + (silver * 7) + (bronze * 3) + min((competitions * 5) + (datasets * 2) + (notebooks * 2), 25), 100)
         
         metrics = {"tier": tier, "competitions": competitions, "datasets": datasets, "notebooks": notebooks, "gold": gold, "silver": silver, "bronze": bronze, "best_rank": best_rank}
-        return int(final_score), metrics, "OK"
+        return int(final_score), metrics, status_msg
     except Exception as e: 
         return 30, {}, str(e)
 
@@ -179,9 +169,8 @@ def deep_analyze_kaggle(username):
 def local_audit_resume(text):
     if not text: return 0
     words = text.lower()
-    score = 45 # คะแนนฐานสำหรับงานเอกสารที่มีโครงสร้างชัดเจน
+    score = 45 
     
-    # เช็กหมวดหมู่คีย์เวิร์ดวิศวกรรมคอมพิวเตอร์และข้อมูล
     keywords = [
         "python", "javascript", "typescript", "c++", "java", "sql", "html", "css",
         "react", "vue", "angular", "node", "express", "django", "fastapi", "flask",
@@ -194,7 +183,6 @@ def local_audit_resume(text):
     matched_words = sum(1 for w in keywords if w in words)
     score += min(matched_words * 1.5, 35)
     
-    # เพิ่มคะแนนตามปริมาณเนื้อหาความยาวเรซูเม่
     if len(words) > 3000: score += 20
     elif len(words) > 1500: score += 15
     elif len(words) > 500: score += 8
@@ -214,8 +202,9 @@ col1, col2 = tf.columns([1, 2])
 
 with col1:
     tf.header(t["input_header"])
-    git_user = tf.text_input(t["github_label"], value="SuriyenKongtip")
-    kag_user = tf.text_input(t["kaggle_label"], value="suriyenkongtip")
+    # ค่า Default ว่างเปล่า ลบชื่อออกหมดแล้ว
+    git_user = tf.text_input(t["github_label"], value="")
+    kag_user = tf.text_input(t["kaggle_label"], value="")
     uploaded_file = tf.file_uploader(t["resume_label"], type=["pdf"])
     
     trigger_analysis = tf.button(t["btn_run"], use_container_width=True, type="primary")
@@ -232,25 +221,21 @@ with col2:
             except Exception as e:
                 tf.error(f"Error reading PDF: {e}")
 
-        # รัน Pipeline ทั้งหมดเรียงลำดับ
-        with tf.spinner("Analyzing profiles, please wait..."):
+        with tf.spinner("Analyzing profiles & bypassing security... please wait..."):
             git_score, git_metrics, git_status = analyze_github(git_user)
             kaggle_score, kag_metrics, kag_status = deep_analyze_kaggle(kag_user)
             resume_score = local_audit_resume(resume_text) if resume_text else 50
             
-            # คำนวณคะแนนเฉลี่ยแบบถ่วงน้ำหนัก (Resume 40%, GitHub 40%, Kaggle 20%)
             total_score = (resume_score * 0.4) + (git_score * 0.4) + (kaggle_score * 0.2)
 
-        # คำนวณอันดับโปรไฟล์ (Profile Tier Ranking)
         if total_score >= 90: level_name, level_emoji, level_desc = "Elite", "👑", "Top-tier innovator, leading exceptional impact."
         elif total_score >= 75: level_name, level_emoji, level_desc = "Advanced", "🟠", "Strong specialized skills with deep proven output."
         elif total_score >= 60: level_name, level_emoji, level_desc = "Builder", "🟢", "Production-ready. Solid codebase, active contributor."
         elif total_score >= 40: level_name, level_emoji, level_desc = "Explorer", "🔵", "Acquiring core technical stacks. Needs portfolio depth."
         else: level_name, level_emoji, level_desc = "Beginner", "🟤", "Just starting out. Focus on accumulating code bases."
 
-        tf.write("Calling Gemini...")
+        tf.write("Calling AI Engine...")
         
-        # ดักล็อกคำตอบล่วงหน้ากันแอปพัง หาก AI เกิดปัญหาเรื่องหมดโควตาในวันนั้น
         resume_feedback_text = ""
         display_ai_result = ""
         ai_error_triggered = False
@@ -294,7 +279,6 @@ with col2:
                 response = model.generate_content(ai_prompt)
                 ai_result = response.text
                 
-                # สกัดเอาเฉพาะรีวิวข้อความ Resume แยกออกมาโชว์
                 feedback_match = re.search(r'### 📄 Resume Feedback\n(.*?)(###|$)', ai_result, re.DOTALL)
                 if feedback_match:
                     resume_feedback_text = feedback_match.group(1).strip()
@@ -308,13 +292,13 @@ with col2:
                 
             except Exception as e:
                 ai_error_triggered = True
-                tf.error("⚠️ โควตา Gemini API (Free Tier) ของคุณเต็มแล้ว! ระบบสลับไปโชว์ข้อมูลคะแนนดิบและแดชบอร์ดด้านล่างให้แทนเพื่อความลื่นไหล")
+                tf.error("⚠️ โควตา AI (Gemini API) ของคุณเต็มแล้ว! ระบบแสดงผลเฉพาะข้อมูลที่ดึงได้จากเซิร์ฟเวอร์ด้านล่าง")
                 tf.caption(f"Details: {e}")
         else:
             ai_error_triggered = True
-            tf.warning("⚠️ ไม่พบคีย์ GEMINI_API_KEY ในระบบ Secrets ข้ามการวิเคราะห์ด้วย AI ไปแสดงแดชบอร์ดสถิติด้านล่างทันที")
+            tf.warning("⚠️ ไม่พบคีย์ GEMINI_API_KEY ในระบบ Secrets ข้ามการวิเคราะห์ด้วย AI")
 
-        # --- 📊 SCORE BREAKDOWN (กู้ข้อมูลกลับมาทำงานได้ 100% แม้ไม่มี AI) ---
+        # --- 📊 SCORE BREAKDOWN ---
         tf.subheader(t["score_depth"])
         tf.success(f"### {t['curr_rank']} {level_emoji} {level_name} \n *{level_desc}*")
         
@@ -343,6 +327,8 @@ with col2:
         with col_b3:
             tf.markdown(f"**📊 Kaggle Performance:** `{kaggle_score} / 100`")
             tf.progress(kaggle_score / 100)
+            if kag_status != "OK":
+                tf.warning(f"⚠️ {kag_status}")
             if kag_metrics:
                 tf.caption(f"🏅 Tier: {kag_metrics['tier'].capitalize()} | 📉 Best Rank: {kag_metrics['best_rank']}")
                 tf.caption(f"🥊 Competitions: **{kag_metrics['competitions']}** | 🗃️ Datasets: {kag_metrics['datasets']} | 📝 Notebooks: {kag_metrics['notebooks']}")
