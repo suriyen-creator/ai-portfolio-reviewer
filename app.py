@@ -2,7 +2,6 @@ import streamlit as tf
 import google.generativeai as genai
 import requests
 import re
-import cloudscraper
 from PyPDF2 import PdfReader
 
 # --- CONFIGURATION & INITIALIZATION ---
@@ -11,7 +10,7 @@ GEMINI_API_KEY = tf.secrets.get("GEMINI_API_KEY", "")
 
 LANGUAGES = {
     "TH": {
-        "title": "🎯 AI Portfolio Intelligence System (V7.9.8)",
+        "title": "🎯 AI Portfolio Intelligence System (V7.9.9)",
         "subtitle": "ระบบวิเคราะห์พอร์ตฟอลิโอและคัดกรองผู้สมัครงานอัจฉริยะด้วย AI",
         "input_header": "📥 ข้อมูลผู้สมัคร",
         "github_label": "GitHub Username (ไม่ต้องใส่ @)",
@@ -24,7 +23,7 @@ LANGUAGES = {
         "total_score": "คะแนนรวมทั้งหมด (Total Weighted Score)"
     },
     "EN": {
-        "title": "🎯 AI Portfolio Intelligence System (V7.9.8)",
+        "title": "🎯 AI Portfolio Intelligence System (V7.9.9)",
         "subtitle": "Enterprise-Grade Candidate Portfolio & Open-Source Intelligence System",
         "input_header": "📥 Candidate Inputs",
         "github_label": "GitHub Username (Without @)",
@@ -85,17 +84,43 @@ def analyze_github(username):
     except Exception as e:
         return 0, {}, str(e)
 
-# --- PHASE 2: KAGGLE (V7.9.8 - HYBRID MANUAL FALLBACK) ---
-def deep_analyze_kaggle(username, manual_stats):
+# --- PHASE 2: KAGGLE (V7.9.9 - AUTO PROXY BYPASS) ---
+def deep_analyze_kaggle(username):
     if not username: return 0, {}, "No Kaggle Profile Provided"
     try:
-        scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False})
         url_main = f"https://www.kaggle.com/{username}"
-        res_main = scraper.get(url_main, timeout=10)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept-Language": "en-US,en;q=0.9"
+        }
         
-        is_blocked = res_main.status_code != 200
-        html = res_main.text if not is_blocked else ""
+        status_msg = "OK"
+        # 1. ลองดึงตรงๆ ก่อน
+        res_main = requests.get(url_main, headers=headers, timeout=10)
+        html = res_main.text
         
+        # 2. ถ้าโดน Cloudflare บล็อก (Status 403 หรือติดหน้า CAPTCHA) ให้ใช้ Proxy ฟรีมุดท่อ
+        if res_main.status_code != 200 or "cloudflare" in html.lower() or "just a moment" in html.lower():
+            status_msg = "Scraped via Proxy (Bypassed Block)"
+            try:
+                proxy_url = f"https://api.allorigins.win/get?url={url_main}"
+                proxy_res = requests.get(proxy_url, timeout=15).json()
+                html = proxy_res.get("contents", "")
+            except:
+                pass
+                
+            # 3. ถ้า Proxy ตัวแรกพัง ลองตัวที่ 2
+            if not html or "cloudflare" in html.lower():
+                try:
+                    proxy_url2 = f"https://api.codetabs.com/v1/proxy?quest={url_main}"
+                    html = requests.get(proxy_url2, timeout=15).text
+                except:
+                    pass
+
+        # เช็กอีกทีว่าหลุดไหม
+        if not html or "cloudflare" in html.lower() or "just a moment" in html.lower():
+            return 30, {}, "Failed: Aggressive Cloudflare Block"
+
         tier_match = re.search(r'"performanceTier"\s*:\s*"([^"]+)"', html, re.IGNORECASE) or re.search(r'"tier"\s*:\s*"([^"]+)"', html, re.IGNORECASE)
         tier = tier_match.group(1) if tier_match else "Novice"
         
@@ -117,19 +142,6 @@ def deep_analyze_kaggle(username, manual_stats):
                 elif m_type == "silver": silver = int(m_match.group(1))
                 elif m_type == "bronze": bronze = int(m_match.group(1))
 
-        # 🛡️ ระบบ Fallback: ถ้าระบบโดนบล็อก หรือดึงมาได้ 0 ให้ใช้ข้อมูลที่ผู้ใช้กรอกมือแทน
-        if is_blocked or (competitions == 0 and datasets == 0 and notebooks == 0):
-            tier = manual_stats["tier"]
-            competitions = manual_stats["comp"]
-            datasets = manual_stats["data"]
-            notebooks = manual_stats["note"]
-            gold = manual_stats["gold"]
-            silver = manual_stats["silver"]
-            bronze = manual_stats["bronze"]
-            status_msg = "Blocked by Kaggle Security (Using Manual Inputs)"
-        else:
-            status_msg = "OK (Auto Scraped)"
-        
         best_rank = "Top 15%" if gold > 0 else ("Top 30%" if silver > 0 or bronze > 0 else "Top 100%")
         tier_score = {"Novice": 30, "Contributor": 50, "Expert": 70, "Master": 85, "Grandmaster": 100}.get(tier.capitalize(), 30)
         
@@ -166,27 +178,6 @@ with col1:
     tf.header(t["input_header"])
     git_user = tf.text_input(t["github_label"], value="")
     kag_user = tf.text_input(t["kaggle_label"], value="")
-    
-    tf.markdown("---")
-    tf.caption("🛠️ **Kaggle Manual Fallback**\n*(หากระบบถูก Kaggle บล็อก จะใช้สถิติจากตรงนี้แทน)*")
-    m_tier = tf.selectbox("Tier", ["Novice", "Contributor", "Expert", "Master", "Grandmaster"])
-    
-    mc1, mc2, mc3 = tf.columns(3)
-    m_comp = mc1.number_input("🥊 Competitions", 0, 500, 0)
-    m_data = mc2.number_input("🗃️ Datasets", 0, 500, 0)
-    m_note = mc3.number_input("📝 Notebooks", 0, 500, 0)
-    
-    mg1, mg2, mg3 = tf.columns(3)
-    m_gold = mg1.number_input("🥇 Gold", 0, 500, 0)
-    m_silv = mg2.number_input("🥈 Silver", 0, 500, 0)
-    m_bron = mg3.number_input("🥉 Bronze", 0, 500, 0)
-    
-    manual_stats = {
-        "tier": m_tier, "comp": m_comp, "data": m_data, "note": m_note,
-        "gold": m_gold, "silver": m_silv, "bronze": m_bron
-    }
-
-    tf.markdown("---")
     uploaded_file = tf.file_uploader(t["resume_label"], type=["pdf"])
     trigger_analysis = tf.button(t["btn_run"], use_container_width=True, type="primary")
 
@@ -201,9 +192,9 @@ with col2:
             except:
                 pass
 
-        with tf.spinner("Analyzing profiles & bypassing security..."):
+        with tf.spinner("Scraping Profiles (Attempting to bypass security)..."):
             git_score, git_metrics, git_status = analyze_github(git_user)
-            kaggle_score, kag_metrics, kag_status = deep_analyze_kaggle(kag_user, manual_stats)
+            kaggle_score, kag_metrics, kag_status = deep_analyze_kaggle(kag_user)
             resume_score = local_audit_resume(resume_text) if resume_text else 50
             
             total_score = (resume_score * 0.4) + (git_score * 0.4) + (kaggle_score * 0.2)
@@ -229,7 +220,7 @@ with col2:
                 tf.markdown(display_ai_result)
             except Exception as e:
                 ai_error_triggered = True
-                tf.error("⚠️ โควตา AI (Gemini API) ของคุณเต็มแล้ว!")
+                tf.error("⚠️ โควตา AI (Gemini API) ของคุณเต็มแล้ว! แสดงผลเฉพาะข้อมูลดิบด้านล่าง")
         
         # --- 📊 SCORE BREAKDOWN ---
         tf.subheader(t["score_depth"])
@@ -249,8 +240,11 @@ with col2:
         with col_b3:
             tf.markdown(f"**📊 Kaggle Performance:** `{kaggle_score} / 100`")
             tf.progress(kaggle_score / 100)
-            if kag_status != "OK (Auto Scraped)":
-                tf.warning(f"⚠️ {kag_status}")
+            if "Failed" in kag_status:
+                tf.error(f"⚠️ {kag_status}")
+            else:
+                tf.caption(f"💡 {kag_status}")
+            
             if kag_metrics:
                 tf.caption(f"🏅 Tier: {kag_metrics['tier'].capitalize()} | 📉 Best Rank: {kag_metrics['best_rank']}")
                 tf.caption(f"🥊 Competitions: **{kag_metrics['competitions']}** | 🗃️ Datasets: {kag_metrics['datasets']} | 📝 Notebooks: {kag_metrics['notebooks']}")
