@@ -2,6 +2,7 @@ import streamlit as tf
 import google.generativeai as genai
 import requests
 import re
+import json
 from PyPDF2 import PdfReader
 
 # --- CONFIGURATION & INITIALIZATION ---
@@ -10,25 +11,25 @@ GEMINI_API_KEY = tf.secrets.get("GEMINI_API_KEY", "")
 
 LANGUAGES = {
     "TH": {
-        "title": "🎯 AI Portfolio Intelligence System (V7.9.11)",
+        "title": "🎯 AI Portfolio Intelligence System",
         "subtitle": "ระบบวิเคราะห์พอร์ตฟอลิโอและคัดกรองผู้สมัครงานอัจฉริยะด้วย AI",
         "input_header": "📥 ข้อมูลผู้สมัคร",
         "github_label": "GitHub Username (ไม่ต้องใส่ @)",
-        "kaggle_label": "Kaggle Username (ไม่ต้องใส่ @)",
+        "kaggle_label": "Kaggle Username หรือ URL โปรไฟล์",
         "resume_label": "อัปโหลด Resume / Portfolio (ไฟล์ PDF)",
         "btn_run": "เริ่มวิเคราะห์โปรไฟล์เชิงลึก 🚀",
         "rec_summary": "🧑‍💼 ผลวิเคราะห์และข้อเสนอแนะจาก AI",
-        "score_depth": "📊 รายละเอียดคะแนนและผลวิเคราะห์เชิงลึก (Score Breakdown)",
+        "score_depth": "📊 รายละเอียดคะแนนและผลวิเคราะห์เชิงลึก",
         "curr_rank": "ระดับปัจจุบันของคุณคือ:",
-        "total_score": "คะแนนรวมทั้งหมด (Total Weighted Score)",
+        "total_score": "คะแนนรวมทั้งหมด",
         "roadmap_title": "🗺️ แผนผังนำทางพัฒนาโปรไฟล์ (Portfolio Roadmap)"
     },
     "EN": {
-        "title": "🎯 AI Portfolio Intelligence System (V7.9.11)",
+        "title": "🎯 AI Portfolio Intelligence System",
         "subtitle": "Enterprise-Grade Candidate Portfolio & Open-Source Intelligence System",
         "input_header": "📥 Candidate Inputs",
         "github_label": "GitHub Username (Without @)",
-        "kaggle_label": "Kaggle Username (Without @)",
+        "kaggle_label": "Kaggle Username or Profile URL",
         "resume_label": "Upload Resume / Portfolio (PDF File)",
         "btn_run": "Run Deep Profile Intelligence 🚀",
         "rec_summary": "🧑‍💼 AI Recruitment Verdict & Feedback",
@@ -90,79 +91,69 @@ def analyze_github(username):
     except Exception as e:
         return 0, {}, str(e)
 
-# --- PHASE 2: KAGGLE (V7.9.11 - DEEP JSON EXTRACTION) ---
-def deep_analyze_kaggle(username):
-    if not username: return 0, {}, "No Kaggle Profile Provided"
+# --- PHASE 2: KAGGLE (DIRECT SCRAPE WITH PROXY BYPASS) ---
+def deep_analyze_kaggle(username_or_url):
+    if not username_or_url: return 0, {}, "No Kaggle Profile Provided"
+    
+    # แกะเอาแค่ Username จาก URL (ถ้าใส่มาเป็นลิงก์)
+    username = username_or_url.split("kaggle.com/")[-1].split("/")[0].replace("@", "").strip()
+    target_url = f"https://www.kaggle.com/{username}"
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://www.google.com/"
+    }
+
     try:
-        url_main = f"https://www.kaggle.com/{username}"
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        res = requests.get(target_url, headers=headers, timeout=10)
+        html = res.text
         
-        res_main = requests.get(url_main, headers=headers, timeout=10)
-        html = res_main.text
-        
-        is_blocked = (res_main.status_code != 200) or ("cloudflare" in html.lower()) or ("just a moment" in html.lower())
-        
-        if is_blocked:
-            html = ""
-            status_msg = "Bypassing via Proxy..."
-            try:
-                html = requests.get(f"https://api.allorigins.win/get?url={url_main}", timeout=10).json().get("contents", "")
-            except: pass
-            if not html or "just a moment" in html.lower():
-                try:
-                    html = requests.get(f"https://api.codetabs.com/v1/proxy?quest={url_main}", timeout=10).text
-                except: pass
-        else:
-            status_msg = "OK (Direct Scrape)"
+        # มุดท่อ Proxy กรณีโดน Cloudflare สกัด
+        if "Just a moment" in html or res.status_code != 200:
+            fallback_url = f"https://api.allorigins.win/raw?url={target_url}"
+            res = requests.get(fallback_url, timeout=15)
+            html = res.text
 
-        if not html or "just a moment" in html.lower():
-            return 30, {}, "Failed: Cloudflare Block"
+        # เจาะข้อมูลจากก้อน JSON ใน HTML
+        tier_match = re.search(r'"performanceTier"\s*:\s*"([^"]+)"', html, re.IGNORECASE)
+        tier = tier_match.group(1).title() if tier_match else "Novice"
 
-        # อัปเกรดตาข่ายดักจับ (Regex) ให้ครอบคลุมรูปแบบใหม่ๆ ของเว็บ Kaggle
-        tier_match = re.search(r'"performanceTier"\s*:\s*"([^"]+)"', html, re.IGNORECASE) or \
-                     re.search(r'"tier"\s*:\s*"([^"]+)"', html, re.IGNORECASE)
-        tier = tier_match.group(1) if tier_match else "Novice"
-        
-        def get_targeted_count(target_name, html_content):
-            # ค้นหาทุกซอกทุกมุมที่เป็นไปได้ใน JSON/JavaScript
-            patterns = [
-                rf'"{target_name}s?Count"\s*:\s*(\d+)',
-                rf'"text"\s*:\s*"{target_name}s?"\s*,\s*"count"\s*:\s*(\d+)',
-                rf'"{target_name}s?"\s*:\s*\{{\s*"count"\s*:\s*(\d+)',
-                rf'"{target_name}s?"\s*:\s*(\d+)'
-            ]
-            for pattern in patterns:
-                m = re.search(pattern, html_content, re.IGNORECASE)
-                if m: return int(m.group(1))
-            return 0
+        def get_count(key):
+            match = re.search(rf'"{key}Summary"\s*:\s*{{[^}}]*"totalResults"\s*:\s*(\d+)', html)
+            return int(match.group(1)) if match else 0
 
-        competitions = get_targeted_count("competition", html)
-        datasets = get_targeted_count("dataset", html)
-        notebooks = get_targeted_count("code", html) or get_targeted_count("script", html)
-        
-        gold = 0; silver = 0; bronze = 0
+        competitions = get_count("competitions")
+        datasets = get_count("datasets")
+        notebooks = get_count("scripts")
+
+        gold, silver, bronze = 0, 0, 0
         for m_type in ["gold", "silver", "bronze"]:
-            m_match = re.search(rf'"{m_type}Medals?"\s*:\s*(\d+)', html, re.IGNORECASE)
+            m_match = re.search(rf'"{m_type}Medals"\s*:\s*(\d+)', html, re.IGNORECASE)
             if m_match:
                 if m_type == "gold": gold = int(m_match.group(1))
                 elif m_type == "silver": silver = int(m_match.group(1))
                 elif m_type == "bronze": bronze = int(m_match.group(1))
 
         best_rank = "Top 15%" if gold > 0 else ("Top 30%" if silver > 0 or bronze > 0 else "Top 100%")
-        tier_score = {"Novice": 30, "Contributor": 50, "Expert": 70, "Master": 85, "Grandmaster": 100}.get(tier.capitalize(), 30)
+        tier_score = {"Novice": 30, "Contributor": 50, "Expert": 70, "Master": 85, "Grandmaster": 100}.get(tier, 30)
         final_score = min(tier_score + (gold * 15) + (silver * 7) + (bronze * 3) + min((competitions * 5) + (datasets * 2) + (notebooks * 2), 25), 100)
         
-        metrics = {"tier": tier, "competitions": competitions, "datasets": datasets, "notebooks": notebooks, "gold": gold, "silver": silver, "bronze": bronze, "best_rank": best_rank}
-        return int(final_score), metrics, status_msg
-    except Exception as e: 
-        return 30, {}, str(e)
+        metrics = {
+            "tier": tier, "competitions": competitions, "datasets": datasets, 
+            "notebooks": notebooks, "gold": gold, "silver": silver, "bronze": bronze, "best_rank": best_rank
+        }
+        return int(final_score), metrics, "💡 OK (Direct JSON Scrape)"
+
+    except Exception as e:
+        return 30, {}, f"Scraping Error: {str(e)}"
 
 # --- PHASE 3: OFFLINE PORTFOLIO AUDIT (RESUME) ---
 def local_audit_resume(text):
     if not text: return 0
     words = text.lower()
     score = 45 
-    keywords = ["python", "javascript", "c++", "java", "sql", "html", "css", "react", "docker", "aws", "ai", "data science"]
+    keywords = ["python", "javascript", "c++", "java", "sql", "html", "css", "react", "docker", "aws", "ai", "data science", "machine learning"]
     matched_words = sum(1 for w in keywords if w in words)
     score += min(matched_words * 2, 35)
     if len(words) > 1500: score += 20
@@ -196,7 +187,7 @@ with col2:
                     if page.extract_text(): resume_text += page.extract_text() + "\n"
             except: pass
 
-        with tf.spinner("Scraping Profiles & Extracting Data..."):
+        with tf.spinner("Analyzing Profiles (Connecting to APIs & Scraping)..."):
             git_score, git_metrics, git_status = analyze_github(git_user)
             kaggle_score, kag_metrics, kag_status = deep_analyze_kaggle(kag_user)
             resume_score = local_audit_resume(resume_text) if resume_text else 50
@@ -214,11 +205,11 @@ with col2:
             try:
                 genai.configure(api_key=GEMINI_API_KEY)
                 model = genai.GenerativeModel('gemini-2.5-flash')
-                ai_prompt = f"เขียนบทวิจารณ์เชิงลึกสำหรับผู้สมัครคนนี้ คะแนนรวม {total_score:.1f}. จุดเด่นและจุดด้อยแบบสั้นๆ"
+                ai_prompt = f"เขียนบทวิจารณ์เชิงลึกสำหรับผู้สมัครคนนี้ คะแนน Resume={resume_score}, GitHub={git_score}, Kaggle={kaggle_score}. คะแนนรวม {total_score:.1f}/100. จุดเด่นและจุดด้อยแบบสั้นๆ กระชับ"
                 tf.subheader(t["rec_summary"])
                 tf.markdown(model.generate_content(ai_prompt).text)
-            except:
-                tf.error("⚠️ โควตา AI ของคุณเต็มแล้ว! แสดงผลเฉพาะข้อมูลดิบด้านล่าง")
+            except Exception as e:
+                tf.error(f"⚠️ AI Error: แสดงผลเฉพาะข้อมูลดิบด้านล่าง ({str(e)})")
         
         # --- 📊 SCORE BREAKDOWN ---
         tf.subheader(t["score_depth"])
@@ -233,26 +224,24 @@ with col2:
             tf.markdown(f"**🐙 GitHub Metrics:** `{git_score} / 100`")
             tf.progress(git_score / 100)
             if git_metrics:
-                # 🟢 เอา UI ของ GitHub ที่กูเผลอลบทิ้งกลับมาครบทุกบรรทัดแล้ว!
                 tf.caption(f"📂 Total Repos: {git_metrics['total_repos']} | 📝 With Description: {git_metrics['has_desc']}")
                 tf.caption(f"🏷️ With Topics: {git_metrics['has_topics']} | ⭐ Stars: {git_metrics['total_stars']}")
                 tf.caption(f"⚡ Active Repos (90 Days): {git_metrics['active_90_days']}")
-                
                 if git_metrics.get("primary_stack"):
                     tf.markdown(f"`Primary Stack:` {', '.join(git_metrics['primary_stack'])}")
-                if git_metrics.get("lang_analysis"):
-                    lang_str = " | ".join([f"{k}: {v}%" for k, v in git_metrics["lang_analysis"].items()])
-                    tf.caption(f"**Language Breakdown:**\n{lang_str}")
 
         with col_b3:
             tf.markdown(f"**📊 Kaggle Performance:** `{kaggle_score} / 100`")
             tf.progress(kaggle_score / 100)
-            tf.caption(f"💡 {kag_status}")
+            if "Error" in kag_status or "No" in kag_status:
+                tf.error(f"⚠️ {kag_status}")
+            else:
+                tf.success(f"💡 {kag_status}")
             
             if kag_metrics:
-                tf.caption(f"🏅 Tier: {kag_metrics['tier'].capitalize()} | 📉 Best Rank: {kag_metrics['best_rank']}")
-                tf.caption(f"🥊 Competitions: **{kag_metrics['competitions']}** | 🗃️ Datasets: {kag_metrics['datasets']} | 📝 Notebooks: {kag_metrics['notebooks']}")
-                tf.caption(f"Medals: 🥇 {kag_metrics['gold']} | 🥈 {kag_metrics['silver']} | 🥉 {kag_metrics['bronze']}")
+                tf.caption(f"🏅 Tier: {kag_metrics.get('tier', 'Novice')} | 📉 Best Rank: {kag_metrics.get('best_rank', 'Top 100%')}")
+                tf.caption(f"🥊 Competitions: **{kag_metrics.get('competitions', 0)}** | 🗃️ Datasets: {kag_metrics.get('datasets', 0)} | 📝 Notebooks: {kag_metrics.get('notebooks', 0)}")
+                tf.caption(f"Medals: 🥇 {kag_metrics.get('gold', 0)} | 🥈 {kag_metrics.get('silver', 0)} | 🥉 {kag_metrics.get('bronze', 0)}")
                 
         tf.metric(label=t["total_score"], value=f"{total_score:.1f} / 100")
         
