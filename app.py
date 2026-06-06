@@ -8,9 +8,10 @@ from PyPDF2 import PdfReader
 tf.set_page_config(page_title="AI Portfolio Intelligence System", page_icon="🎯", layout="wide")
 GEMINI_API_KEY = tf.secrets.get("GEMINI_API_KEY", "")
 
+# 🟢 เอา Roadmap Title กลับมาแล้วใน Dictionary
 LANGUAGES = {
     "TH": {
-        "title": "🎯 AI Portfolio Intelligence System (V7.9.9)",
+        "title": "🎯 AI Portfolio Intelligence System (V7.9.10)",
         "subtitle": "ระบบวิเคราะห์พอร์ตฟอลิโอและคัดกรองผู้สมัครงานอัจฉริยะด้วย AI",
         "input_header": "📥 ข้อมูลผู้สมัคร",
         "github_label": "GitHub Username (ไม่ต้องใส่ @)",
@@ -20,10 +21,11 @@ LANGUAGES = {
         "rec_summary": "🧑‍💼 ผลวิเคราะห์และข้อเสนอแนะจาก AI",
         "score_depth": "📊 รายละเอียดคะแนนและผลวิเคราะห์เชิงลึก (Score Breakdown)",
         "curr_rank": "ระดับปัจจุบันของคุณคือ:",
-        "total_score": "คะแนนรวมทั้งหมด (Total Weighted Score)"
+        "total_score": "คะแนนรวมทั้งหมด (Total Weighted Score)",
+        "roadmap_title": "🗺️ แผนผังนำทางพัฒนาโปรไฟล์ (Portfolio Roadmap)"
     },
     "EN": {
-        "title": "🎯 AI Portfolio Intelligence System (V7.9.9)",
+        "title": "🎯 AI Portfolio Intelligence System (V7.9.10)",
         "subtitle": "Enterprise-Grade Candidate Portfolio & Open-Source Intelligence System",
         "input_header": "📥 Candidate Inputs",
         "github_label": "GitHub Username (Without @)",
@@ -33,7 +35,8 @@ LANGUAGES = {
         "rec_summary": "🧑‍💼 AI Recruitment Verdict & Feedback",
         "score_depth": "📊 Comprehensive Score Breakdown",
         "curr_rank": "Your Current Standing:",
-        "total_score": "Total Weighted Score"
+        "total_score": "Total Weighted Score",
+        "roadmap_title": "🗺️ Next-Level Portfolio Growth Roadmap"
     }
 }
 
@@ -71,6 +74,10 @@ def analyze_github(username):
         sorted_langs = sorted(languages.items(), key=lambda x: x[1], reverse=True)
         primary_stack = [l[0] for l in sorted_langs[:3]]
         
+        # 🟢 คืนชีพ Language Breakdown
+        total_lang_count = sum(languages.values())
+        lang_analysis = {k: round((v / total_lang_count) * 100, 1) for k, v in sorted_langs[:3]} if total_lang_count > 0 else {}
+        
         desc_ratio = (has_desc / total_repos) if total_repos > 0 else 0
         topic_ratio = (has_topics / total_repos) if total_repos > 0 else 0
         score = min((total_repos * 4) + (desc_ratio * 20) + (topic_ratio * 15) + (active_90_days * 8) + min(total_stars * 5, 20), 100)
@@ -78,48 +85,46 @@ def analyze_github(username):
         metrics = {
             "total_repos": total_repos, "has_desc": has_desc, "has_topics": has_topics,
             "total_stars": total_stars, "active_90_days": active_90_days,
-            "primary_stack": primary_stack
+            "primary_stack": primary_stack,
+            "lang_analysis": lang_analysis
         }
         return int(score), metrics, "OK"
     except Exception as e:
         return 0, {}, str(e)
 
-# --- PHASE 2: KAGGLE (V7.9.9 - AUTO PROXY BYPASS) ---
+# --- PHASE 2: KAGGLE (V7.9.10 - AGGRESSIVE PROXY BYPASS) ---
 def deep_analyze_kaggle(username):
     if not username: return 0, {}, "No Kaggle Profile Provided"
     try:
         url_main = f"https://www.kaggle.com/{username}"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Accept-Language": "en-US,en;q=0.9"
-        }
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         
-        status_msg = "OK"
-        # 1. ลองดึงตรงๆ ก่อน
+        # 1. ยิงตรงไปก่อน
         res_main = requests.get(url_main, headers=headers, timeout=10)
         html = res_main.text
         
-        # 2. ถ้าโดน Cloudflare บล็อก (Status 403 หรือติดหน้า CAPTCHA) ให้ใช้ Proxy ฟรีมุดท่อ
-        if res_main.status_code != 200 or "cloudflare" in html.lower() or "just a moment" in html.lower():
-            status_msg = "Scraped via Proxy (Bypassed Block)"
+        # เช็กว่าโดนหน้า Verify you are human หลอกให้ค่า 200 OK หรือเปล่า
+        is_blocked = (res_main.status_code != 200) or ("cloudflare" in html.lower()) or ("just a moment" in html.lower()) or ("challenge" in html.lower())
+        
+        if is_blocked:
+            html = ""
+            status_msg = "Blocked! Bypassing via Proxy 1..."
             try:
                 proxy_url = f"https://api.allorigins.win/get?url={url_main}"
-                proxy_res = requests.get(proxy_url, timeout=15).json()
-                html = proxy_res.get("contents", "")
-            except:
-                pass
-                
-            # 3. ถ้า Proxy ตัวแรกพัง ลองตัวที่ 2
-            if not html or "cloudflare" in html.lower():
+                html = requests.get(proxy_url, timeout=10).json().get("contents", "")
+            except: pass
+            
+            if not html or "just a moment" in html.lower() or "cloudflare" in html.lower():
+                status_msg = "Blocked! Bypassing via Proxy 2..."
                 try:
                     proxy_url2 = f"https://api.codetabs.com/v1/proxy?quest={url_main}"
-                    html = requests.get(proxy_url2, timeout=15).text
-                except:
-                    pass
+                    html = requests.get(proxy_url2, timeout=10).text
+                except: pass
+        else:
+            status_msg = "OK (Direct Scrape)"
 
-        # เช็กอีกทีว่าหลุดไหม
-        if not html or "cloudflare" in html.lower() or "just a moment" in html.lower():
-            return 30, {}, "Failed: Aggressive Cloudflare Block"
+        if not html or "just a moment" in html.lower() or "cloudflare" in html.lower():
+            return 30, {}, "Failed: Aggressive Cloudflare Block (ลองใหม่ทีหลัง)"
 
         tier_match = re.search(r'"performanceTier"\s*:\s*"([^"]+)"', html, re.IGNORECASE) or re.search(r'"tier"\s*:\s*"([^"]+)"', html, re.IGNORECASE)
         tier = tier_match.group(1) if tier_match else "Novice"
@@ -192,7 +197,7 @@ with col2:
             except:
                 pass
 
-        with tf.spinner("Scraping Profiles (Attempting to bypass security)..."):
+        with tf.spinner("Scraping Profiles & Bypassing Security..."):
             git_score, git_metrics, git_status = analyze_github(git_user)
             kaggle_score, kag_metrics, kag_status = deep_analyze_kaggle(kag_user)
             resume_score = local_audit_resume(resume_text) if resume_text else 50
@@ -236,6 +241,12 @@ with col2:
             tf.progress(git_score / 100)
             if git_metrics:
                 tf.caption(f"📂 Repos: {git_metrics['total_repos']} | ⭐ Stars: {git_metrics['total_stars']}")
+                # 🟢 คืนชีพ UI ของ Language Breakdown
+                if git_metrics.get("primary_stack"):
+                    tf.markdown(f"`Primary Stack:` {', '.join(git_metrics['primary_stack'])}")
+                if git_metrics.get("lang_analysis"):
+                    lang_str = " | ".join([f"{k}: {v}%" for k, v in git_metrics["lang_analysis"].items()])
+                    tf.caption(f"**Language Breakdown:**\n{lang_str}")
 
         with col_b3:
             tf.markdown(f"**📊 Kaggle Performance:** `{kaggle_score} / 100`")
@@ -251,3 +262,33 @@ with col2:
                 tf.caption(f"Medals: 🥇 {kag_metrics['gold']} | 🥈 {kag_metrics['silver']} | 🥉 {kag_metrics['bronze']}")
                 
         tf.metric(label=t["total_score"], value=f"{total_score:.1f} / 100")
+        
+        # 🟢 คืนชีพ PORTFOLIO ROADMAP เต็มสูบ!
+        tf.divider()
+        tf.subheader(t["roadmap_title"])
+        tf.markdown("เช็คลิสต์สิ่งที่คุณต้องทำเพิ่มเติม เพื่อดันคะแนนขยับสู่เป้าหมายถัดไป:")
+        col_r1, col_r2 = tf.columns(2)
+        with col_r1:
+            tf.info("🎯 **Target Milestone: Score 70 (Builder Goal)**")
+            diff = 70 - total_score
+            if diff > 0: 
+                repo_goal = int((diff * 0.5) / 1.2) + 1
+                kag_goal = int((diff * 0.5) / 0.4) + 1
+                if lang == "TH":
+                    tf.markdown(f"* 🐙 ดันโปรเจกต์ใหม่ขึ้น GitHub เพิ่มอีก **+{repo_goal} Repositories**\n* 📊 เข้าร่วมส่งงานประกวดใน Kaggle เพิ่มอีก **+{kag_goal} Competitions / Notebooks**")
+                else:
+                    tf.markdown(f"* 🐙 Add **+{repo_goal} Repositories** to GitHub\n* 📊 Join **+{kag_goal} Competitions / Notebooks** on Kaggle")
+            else: 
+                tf.markdown("✅ ผ่านเกณฑ์หลักไมล์นี้เรียบร้อยแล้ว!" if lang=="TH" else "✅ Already Passed!")
+        with col_r2:
+            tf.info("🚀 **Target Milestone: Score 80 (Advanced Goal)**")
+            diff = 80 - total_score
+            if diff > 0: 
+                repo_goal = int((diff * 0.5) / 1.2) + 1
+                kag_goal = int((diff * 0.5) / 0.4) + 1
+                if lang == "TH":
+                    tf.markdown(f"* 🐙 ดันโปรเจกต์ใหม่ขึ้น GitHub เพิ่มอีก **+{repo_goal} Repositories**\n* 📊 เข้าร่วมส่งงานประกวดใน Kaggle เพิ่มอีก **+{kag_goal} Competitions / Notebooks**")
+                else:
+                    tf.markdown(f"* 🐙 Add **+{repo_goal} Repositories** to GitHub\n* 📊 Join **+{kag_goal} Competitions / Notebooks** on Kaggle")
+            else: 
+                tf.markdown("✅ ผ่านเกณฑ์หลักไมล์นี้เรียบร้อยแล้ว!" if lang=="TH" else "✅ Already Passed!")
