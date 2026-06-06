@@ -4,6 +4,7 @@ import requests
 import re
 import json
 from PyPDF2 import PdfReader
+from datetime import datetime, timedelta
 
 # --- CONFIGURATION & INITIALIZATION ---
 st.set_page_config(page_title="AI Portfolio Intelligence System", page_icon="🎯", layout="wide")
@@ -59,7 +60,6 @@ def analyze_github(username):
         has_topics = sum(1 for r in repos if r.get("topics"))
         total_stars = sum(r.get("stargazers_count", 0) for r in repos)
         
-        from datetime import datetime, timedelta
         active_90_days = 0
         cutoff_date = datetime.utcnow() - timedelta(days=90)
         for r in repos:
@@ -98,7 +98,6 @@ def deep_analyze_kaggle(username_or_url):
     import json
     if not username_or_url: return 0, {}, "No Kaggle Profile Provided"
     
-    # แกะชื่อจากลิงก์
     username = username_or_url.split("kaggle.com/")[-1].split("/")[0].replace("@", "").strip()
     target_url = f"https://www.kaggle.com/{username}"
     
@@ -112,7 +111,6 @@ def deep_analyze_kaggle(username_or_url):
         res = requests.get(target_url, headers=headers, timeout=10)
         html = res.text
         
-        # 🛡️ วนลูปมุด Proxy สำรอง ถ้าโดนบล็อก
         if "Just a moment" in html or res.status_code != 200 or "__NEXT_DATA__" not in html:
             proxies = [
                 f"https://api.allorigins.win/raw?url={target_url}",
@@ -128,7 +126,6 @@ def deep_analyze_kaggle(username_or_url):
         if "__NEXT_DATA__" not in html:
             return 30, {}, f"⚠️ ใช้งานไม่ได้: โปรไฟล์ Private หรือติดบล็อก Cloudflare ขั้นสูงสุด"
 
-        # 🔍 แกะข้อมูล JSON ล้วนๆ
         json_match = re.search(r'<script id="__NEXT_DATA__" type="application/json">({.*?})</script>', html)
         if not json_match:
             return 30, {}, "⚠️ ใช้งานไม่ได้: Kaggle เปลี่ยนโครงสร้างเว็บ"
@@ -242,9 +239,17 @@ with col2:
             st.markdown(f"**🐙 GitHub Metrics:** `{git_score} / 100`")
             st.progress(git_score / 100)
             if git_metrics:
+                # 🛠️ คืนค่าข้อมูล GitHub ที่หายไปกลับมาตรงนี้ครบถ้วนแล้วเพื่อน
                 st.caption(f"📂 Total Repos: {git_metrics.get('total_repos', 0)}")
+                st.caption(f"📝 With Description: {git_metrics.get('has_desc', 0)}")
+                st.caption(f"🏷️ With Topics: {git_metrics.get('has_topics', 0)}")
                 st.caption(f"⭐ Stars: {git_metrics.get('total_stars', 0)}")
                 st.caption(f"⚡ Active (90 Days): {git_metrics.get('active_90_days', 0)}")
+                if git_metrics.get("primary_stack"):
+                    st.markdown(f"`Primary Stack:` {', '.join(git_metrics['primary_stack'])}")
+                if git_metrics.get("lang_analysis"):
+                    lang_str = ", ".join([f"{k} ({v}%)" for k, v in git_metrics["lang_analysis"].items()])
+                    st.caption(f"📊 Language Breakdown: {lang_str}")
 
         with col_b3:
             st.markdown(f"**📊 Kaggle Performance:** `{kaggle_score} / 100`")
@@ -256,9 +261,36 @@ with col2:
                 st.success(kag_status)
             
             if kag_metrics:
-                st.caption(f"🏅 Tier: {kag_metrics.get('tier', 'Novice')}")
+                st.caption(f"🏅 Tier: {kag_metrics.get('tier', 'Novice')} | 📉 Best Rank: {kag_metrics.get('best_rank', 'Top 100%')}")
                 st.caption(f"🥊 Competitions: **{kag_metrics.get('competitions', 0)}**")
                 st.caption(f"🗃️ Datasets: {kag_metrics.get('datasets', 0)}")
                 st.caption(f"📝 Notebooks: {kag_metrics.get('notebooks', 0)}")
+                st.caption(f"Medals: 🥇 {kag_metrics.get('gold', 0)} | 🥈 {kag_metrics.get('silver', 0)} | 🥉 {kag_metrics.get('bronze', 0)}")
                 
         st.metric(label=t["total_score"], value=f"{total_score:.1f} / 100")
+        
+        # --- 🗺️ PORTFOLIO ROADMAP ---
+        st.divider()
+        st.subheader(t["roadmap_title"])
+        st.markdown("เช็คลิสต์สิ่งที่คุณต้องทำเพิ่มเติม เพื่อดันคะแนนขยับสู่เป้าหมายถัดไป:")
+        col_r1, col_r2 = st.columns(2)
+        
+        with col_r1:
+            st.info("🎯 **Target Milestone: Score 70 (Builder Goal)**")
+            diff = 70 - total_score
+            if diff > 0: 
+                repo_goal = int((diff * 0.5) / 1.2) + 1
+                kag_goal = int((diff * 0.5) / 0.4) + 1
+                st.markdown(f"* 🐙 ดันโปรเจกต์ใหม่ขึ้น GitHub เพิ่มอีก **+{repo_goal} Repositories** (พร้อมเขียนอธิบายรายละเอียดงาน)\n* 📊 เข้าร่วมส่งงานประกวดใน Kaggle เพิ่มอีก **+{kag_goal} Competitions / Notebooks**")
+            else: 
+                st.markdown("✅ ผ่านเกณฑ์นี้เรียบร้อยแล้ว!")
+                
+        with col_r2:
+            st.info("🚀 **Target Milestone: Score 80 (Advanced Goal)**")
+            diff = 80 - total_score
+            if diff > 0: 
+                repo_goal = int((diff * 0.5) / 1.2) + 1
+                kag_goal = int((diff * 0.5) / 0.4) + 1
+                st.markdown(f"* 🐙 ดันโปรเจกต์ใหม่ขึ้น GitHub เพิ่มอีก **+{repo_goal} Repositories** (พร้อมเขียนอธิบายรายละเอียดงาน)\n* 📊 เข้าร่วมส่งงานประกวดใน Kaggle เพิ่มอีก **+{kag_goal} Competitions / Notebooks**")
+            else: 
+                st.markdown("✅ ผ่านเกณฑ์นี้เรียบร้อยแล้ว!")
