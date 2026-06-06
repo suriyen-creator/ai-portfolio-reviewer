@@ -1,4 +1,3 @@
-```markdown
 # 🎯 AI Portfolio Intelligence System (V7.9.5 Ultimate Precision Core)
 
 An enterprise-grade portfolio intelligence and recruitment screening system built with **Streamlit** and powered by **Google Gemini 2.5 Flash**. The application seamlessly synthesizes offline candidate resumes with live data from their open-source presence (**GitHub**) and competitive data science tracks (**Kaggle**) to deliver weighted scores, interactive metrics dashboards, and AI-powered HR verdicts.
