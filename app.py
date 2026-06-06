@@ -1,4 +1,4 @@
-import streamlit as tf
+import streamlit as st
 import google.generativeai as genai
 import requests
 import re
@@ -6,8 +6,10 @@ import json
 from PyPDF2 import PdfReader
 
 # --- CONFIGURATION & INITIALIZATION ---
-tf.set_page_config(page_title="AI Portfolio Intelligence System", page_icon="🎯", layout="wide")
-GEMINI_API_KEY = tf.secrets.get("GEMINI_API_KEY", "")
+st.set_page_config(page_title="AI Portfolio Intelligence System", page_icon="🎯", layout="wide")
+
+# (ใส่ API KEY ของ Gemini ในไฟล์ secrets.toml ก่อนใช้นะ)
+GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
 
 LANGUAGES = {
     "TH": {
@@ -91,11 +93,12 @@ def analyze_github(username):
     except Exception as e:
         return 0, {}, str(e)
 
-# --- PHASE 2: KAGGLE (DIRECT SCRAPE WITH PROXY BYPASS) ---
+# --- PHASE 2: KAGGLE (ROBUST DIRECT SCRAPE WITH BYPASS) ---
 def deep_analyze_kaggle(username_or_url):
+    import json
     if not username_or_url: return 0, {}, "No Kaggle Profile Provided"
     
-    # แกะเอาแค่ Username จาก URL (ถ้าใส่มาเป็นลิงก์)
+    # แกะชื่อจากลิงก์
     username = username_or_url.split("kaggle.com/")[-1].split("/")[0].replace("@", "").strip()
     target_url = f"https://www.kaggle.com/{username}"
     
@@ -109,31 +112,45 @@ def deep_analyze_kaggle(username_or_url):
         res = requests.get(target_url, headers=headers, timeout=10)
         html = res.text
         
-        # มุดท่อ Proxy กรณีโดน Cloudflare สกัด
-        if "Just a moment" in html or res.status_code != 200:
-            fallback_url = f"https://api.allorigins.win/raw?url={target_url}"
-            res = requests.get(fallback_url, timeout=15)
-            html = res.text
+        # 🛡️ วนลูปมุด Proxy สำรอง ถ้าโดนบล็อก
+        if "Just a moment" in html or res.status_code != 200 or "__NEXT_DATA__" not in html:
+            proxies = [
+                f"https://api.allorigins.win/raw?url={target_url}",
+                f"https://corsproxy.io/?{target_url}"
+            ]
+            for proxy in proxies:
+                try:
+                    res = requests.get(proxy, headers=headers, timeout=15)
+                    html = res.text
+                    if "__NEXT_DATA__" in html: break
+                except: continue
 
-        # เจาะข้อมูลจากก้อน JSON ใน HTML
-        tier_match = re.search(r'"performanceTier"\s*:\s*"([^"]+)"', html, re.IGNORECASE)
-        tier = tier_match.group(1).title() if tier_match else "Novice"
+        if "__NEXT_DATA__" not in html:
+            return 30, {}, f"⚠️ ใช้งานไม่ได้: โปรไฟล์ Private หรือติดบล็อก Cloudflare ขั้นสูงสุด"
+
+        # 🔍 แกะข้อมูล JSON ล้วนๆ
+        json_match = re.search(r'<script id="__NEXT_DATA__" type="application/json">({.*?})</script>', html)
+        if not json_match:
+            return 30, {}, "⚠️ ใช้งานไม่ได้: Kaggle เปลี่ยนโครงสร้างเว็บ"
+            
+        data = json.loads(json_match.group(1))
+        clean_json = json.dumps(data)
+
+        tier_m = re.search(r'"performanceTier"\s*:\s*"([^"]+)"', clean_json, re.IGNORECASE)
+        tier = tier_m.group(1).title() if tier_m else "Novice"
 
         def get_count(key):
-            match = re.search(rf'"{key}Summary"\s*:\s*{{[^}}]*"totalResults"\s*:\s*(\d+)', html)
-            return int(match.group(1)) if match else 0
+            m = re.search(rf'"{key}Summary"\s*:\s*{{"totalResults"\s*:\s*(\d+)', clean_json, re.IGNORECASE)
+            return int(m.group(1)) if m else 0
+
+        def get_medal(color):
+            m = re.search(rf'"{color}Medals"\s*:\s*(\d+)', clean_json, re.IGNORECASE)
+            return int(m.group(1)) if m else 0
 
         competitions = get_count("competitions")
         datasets = get_count("datasets")
         notebooks = get_count("scripts")
-
-        gold, silver, bronze = 0, 0, 0
-        for m_type in ["gold", "silver", "bronze"]:
-            m_match = re.search(rf'"{m_type}Medals"\s*:\s*(\d+)', html, re.IGNORECASE)
-            if m_match:
-                if m_type == "gold": gold = int(m_match.group(1))
-                elif m_type == "silver": silver = int(m_match.group(1))
-                elif m_type == "bronze": bronze = int(m_match.group(1))
+        gold, silver, bronze = get_medal("gold"), get_medal("silver"), get_medal("bronze")
 
         best_rank = "Top 15%" if gold > 0 else ("Top 30%" if silver > 0 or bronze > 0 else "Top 100%")
         tier_score = {"Novice": 30, "Contributor": 50, "Expert": 70, "Master": 85, "Grandmaster": 100}.get(tier, 30)
@@ -143,7 +160,8 @@ def deep_analyze_kaggle(username_or_url):
             "tier": tier, "competitions": competitions, "datasets": datasets, 
             "notebooks": notebooks, "gold": gold, "silver": silver, "bronze": bronze, "best_rank": best_rank
         }
-        return int(final_score), metrics, "💡 OK (Direct JSON Scrape)"
+        
+        return int(final_score), metrics, "💡 ดึงข้อมูลสำเร็จ! (Deep JSON Parse)"
 
     except Exception as e:
         return 30, {}, f"Scraping Error: {str(e)}"
@@ -160,22 +178,22 @@ def local_audit_resume(text):
     return min(int(score), 100)
 
 # --- USER INTERFACE RENDERING ---
-tf.sidebar.title("Configuration ⚙️")
-lang = tf.sidebar.selectbox("Language / เลือกภาษา", ["TH", "EN"])
+st.sidebar.title("Configuration ⚙️")
+lang = st.sidebar.selectbox("Language / เลือกภาษา", ["TH", "EN"])
 t = LANGUAGES[lang]
 
-tf.title(t["title"])
-tf.subheader(t["subtitle"])
-tf.divider()
+st.title(t["title"])
+st.subheader(t["subtitle"])
+st.divider()
 
-col1, col2 = tf.columns([1, 2])
+col1, col2 = st.columns([1, 2])
 
 with col1:
-    tf.header(t["input_header"])
-    git_user = tf.text_input(t["github_label"], value="")
-    kag_user = tf.text_input(t["kaggle_label"], value="")
-    uploaded_file = tf.file_uploader(t["resume_label"], type=["pdf"])
-    trigger_analysis = tf.button(t["btn_run"], use_container_width=True, type="primary")
+    st.header(t["input_header"])
+    git_user = st.text_input(t["github_label"], value="")
+    kag_user = st.text_input(t["kaggle_label"], value="")
+    uploaded_file = st.file_uploader(t["resume_label"], type=["pdf"])
+    trigger_analysis = st.button(t["btn_run"], use_container_width=True, type="primary")
 
 with col2:
     if trigger_analysis:
@@ -187,7 +205,7 @@ with col2:
                     if page.extract_text(): resume_text += page.extract_text() + "\n"
             except: pass
 
-        with tf.spinner("Analyzing Profiles (Connecting to APIs & Scraping)..."):
+        with st.spinner("Analyzing Profiles (Connecting to APIs & Scraping)..."):
             git_score, git_metrics, git_status = analyze_github(git_user)
             kaggle_score, kag_metrics, kag_status = deep_analyze_kaggle(kag_user)
             resume_score = local_audit_resume(resume_text) if resume_text else 50
@@ -200,70 +218,47 @@ with col2:
         elif total_score >= 40: level_name, level_emoji = "Explorer", "🔵"
         else: level_name, level_emoji = "Beginner", "🟤"
 
-        tf.write("Calling AI Engine...")
+        st.write("Calling AI Engine...")
         if GEMINI_API_KEY:
             try:
                 genai.configure(api_key=GEMINI_API_KEY)
                 model = genai.GenerativeModel('gemini-2.5-flash')
                 ai_prompt = f"เขียนบทวิจารณ์เชิงลึกสำหรับผู้สมัครคนนี้ คะแนน Resume={resume_score}, GitHub={git_score}, Kaggle={kaggle_score}. คะแนนรวม {total_score:.1f}/100. จุดเด่นและจุดด้อยแบบสั้นๆ กระชับ"
-                tf.subheader(t["rec_summary"])
-                tf.markdown(model.generate_content(ai_prompt).text)
+                st.subheader(t["rec_summary"])
+                st.markdown(model.generate_content(ai_prompt).text)
             except Exception as e:
-                tf.error(f"⚠️ AI Error: แสดงผลเฉพาะข้อมูลดิบด้านล่าง ({str(e)})")
+                st.error(f"⚠️ AI Error: ไม่สามารถเชื่อมต่อกับ Gemini ได้ ({str(e)})")
         
         # --- 📊 SCORE BREAKDOWN ---
-        tf.subheader(t["score_depth"])
-        tf.success(f"### {t['curr_rank']} {level_emoji} {level_name}")
+        st.subheader(t["score_depth"])
+        st.success(f"### {t['curr_rank']} {level_emoji} {level_name}")
         
-        col_b1, col_b2, col_b3 = tf.columns(3)
+        col_b1, col_b2, col_b3 = st.columns(3)
         with col_b1:
-            tf.markdown(f"**📄 Resume & Portfolio:** `{resume_score} / 100`")
-            tf.progress(resume_score / 100)
+            st.markdown(f"**📄 Resume & Portfolio:** `{resume_score} / 100`")
+            st.progress(resume_score / 100)
             
         with col_b2:
-            tf.markdown(f"**🐙 GitHub Metrics:** `{git_score} / 100`")
-            tf.progress(git_score / 100)
+            st.markdown(f"**🐙 GitHub Metrics:** `{git_score} / 100`")
+            st.progress(git_score / 100)
             if git_metrics:
-                tf.caption(f"📂 Total Repos: {git_metrics['total_repos']} | 📝 With Description: {git_metrics['has_desc']}")
-                tf.caption(f"🏷️ With Topics: {git_metrics['has_topics']} | ⭐ Stars: {git_metrics['total_stars']}")
-                tf.caption(f"⚡ Active Repos (90 Days): {git_metrics['active_90_days']}")
-                if git_metrics.get("primary_stack"):
-                    tf.markdown(f"`Primary Stack:` {', '.join(git_metrics['primary_stack'])}")
+                st.caption(f"📂 Total Repos: {git_metrics.get('total_repos', 0)}")
+                st.caption(f"⭐ Stars: {git_metrics.get('total_stars', 0)}")
+                st.caption(f"⚡ Active (90 Days): {git_metrics.get('active_90_days', 0)}")
 
         with col_b3:
-            tf.markdown(f"**📊 Kaggle Performance:** `{kaggle_score} / 100`")
-            tf.progress(kaggle_score / 100)
-            if "Error" in kag_status or "No" in kag_status:
-                tf.error(f"⚠️ {kag_status}")
+            st.markdown(f"**📊 Kaggle Performance:** `{kaggle_score} / 100`")
+            st.progress(kaggle_score / 100)
+            
+            if "Error" in kag_status or "⚠️" in kag_status:
+                st.error(kag_status)
             else:
-                tf.success(f"💡 {kag_status}")
+                st.success(kag_status)
             
             if kag_metrics:
-                tf.caption(f"🏅 Tier: {kag_metrics.get('tier', 'Novice')} | 📉 Best Rank: {kag_metrics.get('best_rank', 'Top 100%')}")
-                tf.caption(f"🥊 Competitions: **{kag_metrics.get('competitions', 0)}** | 🗃️ Datasets: {kag_metrics.get('datasets', 0)} | 📝 Notebooks: {kag_metrics.get('notebooks', 0)}")
-                tf.caption(f"Medals: 🥇 {kag_metrics.get('gold', 0)} | 🥈 {kag_metrics.get('silver', 0)} | 🥉 {kag_metrics.get('bronze', 0)}")
+                st.caption(f"🏅 Tier: {kag_metrics.get('tier', 'Novice')}")
+                st.caption(f"🥊 Competitions: **{kag_metrics.get('competitions', 0)}**")
+                st.caption(f"🗃️ Datasets: {kag_metrics.get('datasets', 0)}")
+                st.caption(f"📝 Notebooks: {kag_metrics.get('notebooks', 0)}")
                 
-        tf.metric(label=t["total_score"], value=f"{total_score:.1f} / 100")
-        
-        tf.divider()
-        tf.subheader(t["roadmap_title"])
-        tf.markdown("เช็คลิสต์สิ่งที่คุณต้องทำเพิ่มเติม เพื่อดันคะแนนขยับสู่เป้าหมายถัดไป:")
-        col_r1, col_r2 = tf.columns(2)
-        with col_r1:
-            tf.info("🎯 **Target Milestone: Score 70**")
-            diff = 70 - total_score
-            if diff > 0: 
-                repo_goal = int((diff * 0.5) / 1.2) + 1
-                kag_goal = int((diff * 0.5) / 0.4) + 1
-                tf.markdown(f"* 🐙 ดันโปรเจกต์ขึ้น GitHub เพิ่ม **+{repo_goal} Repositories**\n* 📊 เข้าร่วม Kaggle เพิ่ม **+{kag_goal} Competitions**")
-            else: 
-                tf.markdown("✅ ผ่านเกณฑ์นี้เรียบร้อยแล้ว!")
-        with col_r2:
-            tf.info("🚀 **Target Milestone: Score 80**")
-            diff = 80 - total_score
-            if diff > 0: 
-                repo_goal = int((diff * 0.5) / 1.2) + 1
-                kag_goal = int((diff * 0.5) / 0.4) + 1
-                tf.markdown(f"* 🐙 ดันโปรเจกต์ขึ้น GitHub เพิ่ม **+{repo_goal} Repositories**\n* 📊 เข้าร่วม Kaggle เพิ่ม **+{kag_goal} Competitions**")
-            else: 
-                tf.markdown("✅ ผ่านเกณฑ์นี้เรียบร้อยแล้ว!")
+        st.metric(label=t["total_score"], value=f"{total_score:.1f} / 100")
