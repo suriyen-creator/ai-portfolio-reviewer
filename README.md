@@ -2,6 +2,8 @@
 
 An enterprise-grade, AI-powered evaluation system designed for Technical Recruiters and HR professionals. This tool shifts away from synthetic heuristic scores and relies **100% on verifiable evidence**, analyzing live GitHub data and candidate resumes to generate transparent, recruiter-trusted evaluations.
 
+🎯 **Live Demo:** [Try the App Here](https://ai-portfolio-reviewer-7romvlv56av4x9d2pcm3ar.streamlit.app/)
+
 ## 🚀 Why This Tool Exists
 
 Recruiters don't trust black-box "AI scores." They need traceability, evidence, and logical breakdowns. This system evaluates software engineering candidates by cross-referencing their **PDF Resumes** with their **Real-time GitHub Repositories** using the Gemini LLM. Every score is backed by a specific piece of evidence, eliminating AI hallucination and guesswork.
@@ -52,7 +54,7 @@ GITHUB_TOKEN = "ghp_YourGitHubPersonalAccessTokenHere..."
 
 > **Note:** A GitHub Personal Access Token (PAT) is highly recommended to prevent API rate-limiting when analyzing multiple candidates.
 
-**4. Run the Application**
+**4. Run the Application Locally**
 
 ```bash
 streamlit run app.py
@@ -61,9 +63,10 @@ streamlit run app.py
 
 ## 🎯 How to Use (Recruiter Workflow)
 
-1. **Input Data:** Enter the candidate's GitHub username (without the `@`) and upload their latest Resume/CV (PDF format).
-2. **Execute Audit:** Click *“Extract Evidence & Analyze 🚀”*.
-3. **Review the Verdict:**
+1. **Access the platform:** Open the [Live Demo](https://ai-portfolio-reviewer-7romvlv56av4x9d2pcm3ar.streamlit.app/) or run it locally.
+2. **Input Data:** Enter the candidate's GitHub username (without the `@`) and upload their latest Resume/CV (PDF format).
+3. **Execute Audit:** Click *“Extract Evidence & Analyze 🚀”*.
+4. **Review the Verdict:**
 * Check the **Overall Validated Score** and the **System Confidence**.
 * Scan the **Skills Extracted** to see if their tech stack matches your job description.
 * Open the **Project Evidence Viewer** to see if they actually deploy their code and write documentation.
@@ -86,7 +89,3 @@ Contributions, issues, and feature requests are welcome! Feel free to check the 
 ## 📝 License
 
 This project is [MIT](https://choosealicense.com/licenses/mit/) licensed.
-
-```
-
-```
