@@ -1,109 +1,102 @@
-# 🎯 AI Portfolio Intelligence System (V7.9.5 Ultimate Precision Core)
+# 🎯 AI Portfolio Intelligence System
 
-An enterprise-grade portfolio intelligence and recruitment screening system built with **Streamlit** and powered by **Google Gemini 2.5 Flash**. The application seamlessly synthesizes offline candidate resumes with live data from their open-source presence (**GitHub**) and competitive data science tracks (**Kaggle**) to deliver weighted scores, interactive metrics dashboards, and AI-powered HR verdicts.
-
----
-
-## 🚀 Key Features
-
-* **📄 Automated Resume Audit & AI Insights:** Parses uploaded PDF portfolios using keyword density calculations and feeds text vectors into Gemini for a full structural review.
-* **🐙 Deep GitHub Profiling:** Leverages the GitHub API to crawl repositories, evaluate documentation quality (descriptions & topics), track stars, isolate the primary language stack, and assess code freshness over a 90-day rolling window.
-* **📊 Advanced Kaggle Scraper (V7.9.5 Precision Engine):** Features a specialized regex target object extractor that directly maps Kaggle's internal UI script arrays to pull competition history, dataset deployments, notebook publish tallies, and medal tiers (Gold/Silver/Bronze) with bulletproof fallbacks.
-* **🛡️ Resilient Fail-Safe Architecture:** Engineered with high-fault tolerance. If the Google Gemini API triggers a `429 ResourceExhausted` quota limit error, the application gracefully circumvents a system crash, keeping the core statistical dashboards and data breakdowns operational.
-* **💾 Localized Quota Safeguards:** Implements a state-retaining JSON-based throttle (`quota_db.json`) that manages maximum daily usage limits to prevent API cost overruns.
-* **🌐 Seamless Bilingual Localization:** Full internationalization support with a toggleable English (EN) and Thai (TH) interface.
+An enterprise-grade candidate portfolio auditing and Open-Source Intelligence (OSINT) system. This application automatically aggregates, scraps, and analyzes an applicant's professional presence across **Resumes (PDF)**, **GitHub**, and **Kaggle** using Advanced Web Scraping and Generative AI to provide deep recruitment insights and actionable growth roadmaps.
 
 ---
 
-## 🛠️ System Architecture & Scoring Blueprint
+## ✨ Key Features
 
-The application grades candidate profiles out of `100` total points based on an explicit weighted matrix:
-* **Resume & Portfolio Structure (40%):** Assesses professional formatting, text volume, and critical operational keyword hits.
-* **GitHub Repository Health (40%):** Evaluates production-readiness, collaborative footprint, and continuous integration activity.
-* **Kaggle Competitive Footprint (20%):** Calculates data engineering milestones based on global user tier standing and competition participation.
-
-### 🏆 Candidate Tier Ranking:
-* **0 - 39:** `🟤 Beginner` — Needs immediate project accumulation.
-* **40 - 59:** `🔵 Explorer` — Possesses raw technical skills but lacks portfolio depth.
-* **60 - 74:** `🟢 Builder` — Production-ready, validated open-source codebase.
-* **75 - 89:** `🟠 Advanced` — Distinct domain specialization with high-impact project outcomes.
-* **90 - 100:** `👑 Elite` — Top-tier technical capabilities, industry-driving leadership potential.
+* **📄 Smarter Resume Auditing:** Extracts and evaluates core technical competencies, keyword density, and overall portfolio depth directly from uploaded PDF files.
+* **🐙 Deep GitHub Metrics:** Connects to the GitHub API to calculate active code contributions (90-day window), repository documentation quality (descriptions & topics), star counts, and automatically visualizes the candidate's primary language stack.
+* **📊 Bulletproof Kaggle Scraping:** Powered by **Playwright headless browser automation** to seamlessly bypass Cloudflare defenses and extract real-time tier ranks, competitions, datasets, notebooks, and medal breakdowns directly from Next.js state data.
+* **🧑‍💼 GenAI-Powered Verdict:** Integrates with Google's **Gemini 2.5 Flash** engine to generate structured, human-like summaries highlighting strengths, weaknesses, and a technical hiring verdict.
+* **🗺️ Dynamic Portfolio Roadmap:** Automatically calculates gamified milestones and prints precise checklists telling the candidate exactly how many repositories or competitions they need to complete to reach the next tier.
 
 ---
 
-## 📦 Prerequisites & Installation
+## 🛠️ Tech Stack
 
-Ensure you have Python 3.8+ installed on your host system.
+* **Frontend/UI:** [Streamlit](https://streamlit.io/)
+* **AI Engine:** [Google Generative AI (Gemini API)](https://ai.google.dev/)
+* **Browser Automation & Scraping:** [Playwright](https://playwright.dev/python/)
+* **Data Extraction:** PyPDF2, Requests, Regex, JSON
+* **Language:** Python 3.9+
 
-1. **Clone the repository:**
+---
+
+## 🚀 Local Setup & Installation
+
+Follow these steps to get the project running smoothly on your local machine:
+
+### 1. Clone the Repository
+
 ```bash
-   git clone [https://github.com/yourusername/ai-portfolio-intelligence.git](https://github.com/yourusername/ai-portfolio-intelligence.git)
-   cd ai-portfolio-intelligence
+git clone https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
+cd YOUR_REPO_NAME
 
 ```
 
-2. **Install the required dependencies:**
+### 2. Install Python Dependencies
+
+Install the required packages listed in the `requirements.txt`:
 
 ```bash
-   pip install streamlit google-generativeai requests PyPDF2
+pip install -r requirements.txt
 
 ```
 
----
+### 3. Install Playwright Web Drivers
 
-## 🔑 Configuration & Secrets Management
-
-The system relies on Streamlit's internal secrets manager to securely expose environmental API keys.
-
-Create a `.streamlit` folder inside your project root and add a `secrets.toml` file:
+Playwright requires its own standalone browser binaries to perform the headless web-scraping. Run the following commands to install the Chromium driver:
 
 ```bash
-mkdir .streamlit
-touch .streamlit/secrets.toml
+pip install playwright
+playwright install chromium
 
 ```
 
-Open `.streamlit/secrets.toml` and supply your **Google AI Studio API Key**:
+### 4. Configure Your API Secrets
+
+Create a local Streamlit secrets file at `.streamlit/secrets.toml` in your project's root folder and add your Gemini API Key:
 
 ```toml
 # .streamlit/secrets.toml
-GEMINI_API_KEY = "AIzaSyYourActualGeminiAPIKeyHere..."
+GEMINI_API_KEY = "YOUR_ACTUAL_GEMINI_API_KEY_HERE"
 
 ```
 
----
-
-## 🎮 Running the Application
-
-Execute the script via the Streamlit CLI to spin up the local web application container:
+### 5. Launch the Application
 
 ```bash
 streamlit run app.py
 
 ```
 
-The terminal will return local and network URLs (typically `http://localhost:8501`). Open this address in your web browser to test your workflows.
-
 ---
 
-## 🛡️ Troubleshooting & Rate Limits
+## ☁️ Deployment on Streamlit Community Cloud
 
-### 1. `google.api_core.exceptions.ResourceExhausted: 429`
+When deploying this application to **Streamlit Cloud**, the environment needs extra OS-level configuration to support headless browser rendering. This repository is already pre-configured to handle cloud deployments seamlessly:
 
-* **Cause:** You have hit the daily threshold on the Gemini API Free Tier (capped at 20 requests per day per project/model).
-* **Fix:** Wait for the server reset window (00:00 UTC / 07:00 AM ICT) or generate a new token via another Google account in [Google AI Studio](https://aistudio.google.com/) and swap it into your `secrets.toml`.
+1. **`requirements.txt`**: Automatically installs the python libraries.
+2. **`packages.txt`**: Tells the Streamlit Linux container to pre-install `chromium` at the OS level.
+3. **Auto-Installer Function**: The `initialize_playwright_env()` block inside `app.py` automatically initializes the playwright environment on build.
 
-### 2. Streamlit Quota Lockout
+### ⚙️ Setting Cloud Environment Variables:
 
-* **Cause:** The app's localized guard rail `quota_db.json` has logged 10 successful evaluations for the calendar day.
-* **Fix:** For development testing, safely delete the `quota_db.json` file inside the root workspace folder, or manually alter the `"count"` object value back to `0` to instantly reset the system tracker.
+During setup on the Streamlit Cloud dashboard, click on **Advanced Settings** and paste your API Key into the **Secrets** text area:
 
----
-
-## 📝 License
-
-This project is open-source software licensed under the MIT License.
+```toml
+GEMINI_API_KEY = "AIzaSy..."
 
 ```
 
-```
+---
+
+## 🛡️ License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+---
+
+> **Note:** This tool is intended for recruitment screening and portfolio building assistance. Ensure compliance with data privacy guidelines when parsing third-party profiles.
