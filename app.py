@@ -3,13 +3,24 @@ import google.generativeai as genai
 import requests
 import re
 import json
+import subprocess
 from PyPDF2 import PdfReader
 from datetime import datetime, timedelta
 
+# --- 🚀 AUTOMATIC PLAYWRIGHT INSTALLER FOR CLOUD DEPLOYMENT ---
+@st.cache_resource
+def initialize_playwright_env():
+    """ฟังก์ชันติดตั้งเบราว์เซอร์อัตโนมัติเมื่อรันบน Server Cloud ครั้งแรก"""
+    try:
+        subprocess.run(["playwright", "install", "chromium"], check=True)
+    except Exception as e:
+        pass
+
+# รันระบบติดตั้งเบราว์เซอร์เบื้องหลัง
+initialize_playwright_env()
+
 # --- CONFIGURATION & INITIALIZATION ---
 st.set_page_config(page_title="AI Portfolio Intelligence System", page_icon="🎯", layout="wide")
-
-# (ใส่ API KEY ของ Gemini ในไฟล์ secrets.toml ก่อนใช้นะ)
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
 
 LANGUAGES = {
@@ -93,42 +104,31 @@ def analyze_github(username):
     except Exception as e:
         return 0, {}, str(e)
 
-# --- PHASE 2: KAGGLE (ROBUST DIRECT SCRAPE WITH BYPASS) ---
+# --- PHASE 2: KAGGLE (REAL-TIME PLAYWRIGHT SCRAPER) ---
 def deep_analyze_kaggle(username_or_url):
-    import json
+    from playwright.sync_api import sync_playwright
     if not username_or_url: return 0, {}, "No Kaggle Profile Provided"
     
     username = username_or_url.split("kaggle.com/")[-1].split("/")[0].replace("@", "").strip()
     target_url = f"https://www.kaggle.com/{username}"
     
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.google.com/"
-    }
-
     try:
-        res = requests.get(target_url, headers=headers, timeout=10)
-        html = res.text
-        
-        if "Just a moment" in html or res.status_code != 200 or "__NEXT_DATA__" not in html:
-            proxies = [
-                f"https://api.allorigins.win/raw?url={target_url}",
-                f"https://corsproxy.io/?{target_url}"
-            ]
-            for proxy in proxies:
-                try:
-                    res = requests.get(proxy, headers=headers, timeout=15)
-                    html = res.text
-                    if "__NEXT_DATA__" in html: break
-                except: continue
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+            page = context.new_page()
+            page.goto(target_url, wait_until="networkidle", timeout=30000)
+            html = page.content()
+            browser.close()
 
-        if "__NEXT_DATA__" not in html:
-            return 30, {}, f"⚠️ ใช้งานไม่ได้: โปรไฟล์ Private หรือติดบล็อก Cloudflare ขั้นสูงสุด"
+        if "Just a moment" in html or "__NEXT_DATA__" not in html:
+            return 30, {}, "⚠️ Cloudflare บล็อกชั่วคราว (กรุณากดรันใหม่อีกครั้ง)"
 
         json_match = re.search(r'<script id="__NEXT_DATA__" type="application/json">({.*?})</script>', html)
         if not json_match:
-            return 30, {}, "⚠️ ใช้งานไม่ได้: Kaggle เปลี่ยนโครงสร้างเว็บ"
+            return 30, {}, "⚠️ ไม่พบโครงสร้างข้อมูลโปรไฟล์ของยูสเซอร์นี้"
             
         data = json.loads(json_match.group(1))
         clean_json = json.dumps(data)
@@ -158,12 +158,12 @@ def deep_analyze_kaggle(username_or_url):
             "notebooks": notebooks, "gold": gold, "silver": silver, "bronze": bronze, "best_rank": best_rank
         }
         
-        return int(final_score), metrics, "💡 ดึงข้อมูลสำเร็จ! (Deep JSON Parse)"
+        return int(final_score), metrics, "💡 ดึงข้อมูลสดสำเร็จด้วย Playwright Engine!"
 
     except Exception as e:
-        return 30, {}, f"Scraping Error: {str(e)}"
+        return 30, {}, f"Playwright Error: {str(e)}"
 
-# --- PHASE 3: OFFLINE PORTFOLIO AUDIT (RESUME) ---
+# --- PHASE 3: PORTFOLIO AUDIT (RESUME) ---
 def local_audit_resume(text):
     if not text: return 0
     words = text.lower()
@@ -202,7 +202,7 @@ with col2:
                     if page.extract_text(): resume_text += page.extract_text() + "\n"
             except: pass
 
-        with st.spinner("Analyzing Profiles (Connecting to APIs & Scraping)..."):
+        with st.spinner("Analyzing Profiles (Opening Headless Browser & Connecting APIs)..."):
             git_score, git_metrics, git_status = analyze_github(git_user)
             kaggle_score, kag_metrics, kag_status = deep_analyze_kaggle(kag_user)
             resume_score = local_audit_resume(resume_text) if resume_text else 50
@@ -224,7 +224,7 @@ with col2:
                 st.subheader(t["rec_summary"])
                 st.markdown(model.generate_content(ai_prompt).text)
             except Exception as e:
-                st.error(f"⚠️ AI Error: ไม่สามารถเชื่อมต่อกับ Gemini ได้ ({str(e)})")
+                st.error(f"⚠️ AI Error: ไม่สามารถดึงข้อความแนะนำวิจารณ์จาก Gemini ได้ ({str(e)})")
         
         # --- 📊 SCORE BREAKDOWN ---
         st.subheader(t["score_depth"])
@@ -239,7 +239,6 @@ with col2:
             st.markdown(f"**🐙 GitHub Metrics:** `{git_score} / 100`")
             st.progress(git_score / 100)
             if git_metrics:
-                # 🛠️ คืนค่าข้อมูล GitHub ที่หายไปกลับมาตรงนี้ครบถ้วนแล้วเพื่อน
                 st.caption(f"📂 Total Repos: {git_metrics.get('total_repos', 0)}")
                 st.caption(f"📝 With Description: {git_metrics.get('has_desc', 0)}")
                 st.caption(f"🏷️ With Topics: {git_metrics.get('has_topics', 0)}")
