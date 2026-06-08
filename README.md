@@ -1,93 +1,92 @@
 # 🕵️‍♂️ Evidence-Based Portfolio Auditor (HR Edition)
 
-**Enterprise-Grade AI Candidate Evaluation System** ระบบวิเคราะห์และประเมินพอร์ตฟอลิโอผู้สมัครงานสาย Tech ด้วย AI โดยประเมินจาก **"หลักฐานเชิงประจักษ์ (Real Evidence) 100%"** ปราศจากการสุ่มเดาหรือการใช้ Heuristic Score ที่ไม่สามารถตรวจสอบได้
+An enterprise-grade, AI-powered evaluation system designed for Technical Recruiters and HR professionals. This tool shifts away from synthetic heuristic scores and relies **100% on verifiable evidence**, analyzing live GitHub data and candidate resumes to generate transparent, recruiter-trusted evaluations.
 
----
+## 🚀 Why This Tool Exists
 
-## 🌟 ทำไมต้องใช้ระบบนี้? (Why this project?)
-ในยุคที่ AI ถูกนำมาใช้ประเมินผู้สมัครงาน ระบบส่วนใหญ่มักจะ "เดา" หรือ "สร้างตัวเลขขึ้นมาลอยๆ" (Hallucination) จากข้อมูลที่ไม่ครบถ้วน 
-โปรเจกต์นี้ถูกออกแบบมาเพื่อแก้ปัญหานั้นโดยเฉพาะ ด้วยสถาปัตยกรรม **Traceable Scoring System** ที่ทุกคะแนนและทุกคำวิจารณ์ ต้องสามารถตรวจสอบย้อนกลับไปยัง **"หลักฐานต้นทาง"** ได้เสมอ 
+Recruiters don't trust black-box "AI scores." They need traceability, evidence, and logical breakdowns. This system evaluates software engineering candidates by cross-referencing their **PDF Resumes** with their **Real-time GitHub Repositories** using the Gemini LLM. Every score is backed by a specific piece of evidence, eliminating AI hallucination and guesswork.
 
-## 🔥 ฟีเจอร์หลัก (Key Features)
+## ✨ Key Features
 
-* 🐙 **GitHub API Integration (40% Weight):** ดึงข้อมูลจริงผ่าน API เพื่อวิเคราะห์ความสม่ำเสมอ (Active 90 Days), จำนวน Repository, ยอด Stars และ Tech Stack หลัก
-* 📄 **Smart Resume Parsing (30% Weight):** อ่านไฟล์ PDF เพื่อประเมินความชัดเจนในการเขียน, การจัดโครงสร้าง และตรวจหาจุดอ่อนของประวัติ
-* 🧠 **Deep Skills Inference:** วิเคราะห์และสกัดทักษะ (Skills) ออกมาเป็นระดับ (Advanced 🟢, Intermediate 🟡, Basic ⚪) อัตโนมัติ
-* 🚀 **Project Evidence Viewer (30% Weight):** ระบบ Checklist ตรวจจับความสมบูรณ์ของโปรเจกต์ เช่น การมี README, การเรียกใช้ API, การทำ CI/CD และพยานหลักฐานการทำ Deployment
-* 📌 **HR Recommendation Engine:** แนะนำ Next Steps สำหรับ Recruiter ว่าควรทำอย่างไรต่อไปกับผู้สมัครรายนี้
-* ⚖️ **System Confidence Score:** มีดัชนีบอกระดับความน่าเชื่อถือของการประเมิน (High/Medium/Low) ขึ้นอยู่กับจำนวนหลักฐานที่ผู้สมัครให้มา
-
----
+* **🐙 Live GitHub Evidence Gathering:** Fetches real-time metrics via the GitHub API (active repositories, 90-day commit consistency, stars, and language diversity).
+* **📄 Intelligent Resume Parsing:** Extracts raw text from PDF resumes and audits them for clarity, project counts, and structural weaknesses.
+* **🧠 Skills Inference Engine:** Cross-references resume claims with GitHub repositories to automatically deduce technical skills and categorize them by proficiency (🟢 Advanced, 🟡 Intermediate, ⚪ Basic).
+* **🚀 Project Evidence Viewer:** Drills down into specific projects to verify technical depth. Automatically detects the presence of `README.md`, API integrations, deployment links, and CI/CD pipelines.
+* **📌 HR Recommendation Engine:** Provides actionable "Next Steps" for the recruiter or constructive feedback for the candidate based solely on missing evidence.
+* **🛡️ System Confidence Score:** Displays a trust metric (High/Medium/Low) based on the volume of verifiable data provided.
 
 ## 🛠️ Tech Stack
 
 * **Frontend & Framework:** [Streamlit](https://streamlit.io/)
-* **AI / LLM Engine:** [Google Gemini 2.5 Flash](https://ai.google.dev/) (เพื่อความรวดเร็วและแม่นยำในการทำ Data Extraction)
-* **External APIs:** GitHub REST API
-* **PDF Processing:** PyPDF2
+* **AI / LLM Engine:** [Google Gemini 2.5 Flash](https://ai.google.dev/) (`google-generativeai`)
+* **Data Retrieval:** REST APIs (`requests`), GitHub API
+* **PDF Processing:** `PyPDF2`
 
----
-
-## ⚙️ การติดตั้งและใช้งาน (Installation & Setup)
+## ⚙️ Installation & Setup
 
 **1. Clone the repository**
 ```bash
-git clone [https://github.com/your-username/evidence-based-portfolio-auditor.git](https://github.com/your-username/evidence-based-portfolio-auditor.git)
-cd evidence-based-portfolio-auditor
+git clone [https://github.com/yourusername/portfolio-auditor.git](https://github.com/yourusername/portfolio-auditor.git)
+cd portfolio-auditor
 
 ```
 
-**2. ติดตั้ง Dependencies**
+**2. Install dependencies**
 
 ```bash
 pip install -r requirements.txt
 
 ```
 
-*(ไฟล์ `requirements.txt` ประกอบด้วย: `streamlit`, `google-generativeai`, `requests`, `PyPDF2`)*
+*(Ensure your `requirements.txt` includes: `streamlit`, `google-generativeai`, `requests`, `PyPDF2`)*
 
-**3. ตั้งค่า API Keys (Secrets)**
-สร้างโฟลเดอร์ `.streamlit` และไฟล์ `secrets.toml` ใน Root directory ของโปรเจกต์:
-
-```bash
-mkdir .streamlit
-touch .streamlit/secrets.toml
-
-```
-
-ใส่ API Keys ของคุณลงในไฟล์ `secrets.toml`:
+**3. Configure Environment Secrets**
+Create a `.streamlit/secrets.toml` file in the root directory to store your API keys securely.
 
 ```toml
 # .streamlit/secrets.toml
-GEMINI_API_KEY = "AIzaSy_ของคุณ..."
-GITHUB_TOKEN = "ghp_ของคุณ..."
+GEMINI_API_KEY = "AIzaSyYourGeminiKeyHere..."
+GITHUB_TOKEN = "ghp_YourGitHubPersonalAccessTokenHere..."
 
 ```
 
-> **Note:** `GITHUB_TOKEN` จำเป็นมากเพื่อป้องกันการติด Rate Limit ของ GitHub API และเพื่อให้สามารถสืบค้นข้อมูลได้ลึกขึ้น
+> **Note:** A GitHub Personal Access Token (PAT) is highly recommended to prevent API rate-limiting when analyzing multiple candidates.
 
-**4. รันแอปพลิเคชัน**
+**4. Run the Application**
 
 ```bash
 streamlit run app.py
 
 ```
 
----
+## 🎯 How to Use (Recruiter Workflow)
 
-## 💡 โครงสร้างระบบการให้คะแนน (Scoring Architecture)
+1. **Input Data:** Enter the candidate's GitHub username (without the `@`) and upload their latest Resume/CV (PDF format).
+2. **Execute Audit:** Click *“Extract Evidence & Analyze 🚀”*.
+3. **Review the Verdict:**
+* Check the **Overall Validated Score** and the **System Confidence**.
+* Scan the **Skills Extracted** to see if their tech stack matches your job description.
+* Open the **Project Evidence Viewer** to see if they actually deploy their code and write documentation.
+* Read the **HR Next Step Recommendations** for final decision-making.
 
-ระบบใช้แนวทาง **Rule-Based + Weighted AI Extraction**:
 
-1. **GitHub Evidence (40%):** คำนวณจากกฎตายตัว (Rule-based) ผ่านข้อมูลดิบ (Repos, Commits, Stars)
-2. **Resume Evidence (30%):** ใช้ LLM สกัดข้อมูลเชิงคุณภาพออกมาเป็นคะแนนความสมบูรณ์
-3. **Project Quality (30%):** ใช้ LLM ครอสเช็คข้อมูลระหว่าง Resume และ GitHub Metadata เพื่อหาหลักฐานทางสถาปัตยกรรมซอฟต์แวร์
 
----
+## ⚖️ Scoring Architecture
 
-## 🛡️ สถาปัตยกรรมที่เน้นความเสถียร (Production-Ready)
+The overall score is a weighted average of three verifiable pillars:
 
-* **Zero-Scraping:** ไม่มีการทำ Web Scraping (เช่น Playwright/Selenium) ทำให้ระบบไม่มีวันพังจากการเปลี่ยนโครงสร้างเว็บหรือติด Cloudflare
-* **No Synthetic Data:** ตัดระบบที่คลุมเครือ (เช่น Kaggle Heuristics) ออกทั้งหมด เพื่อให้ได้มาตรฐาน **Recruiter-Grade** อย่างแท้จริง
+* **40% GitHub Evidence:** Repository volume, recency of commits, and code metrics.
+* **30% Resume Evidence:** Clarity, project quantification, and skill relevance.
+* **30% Deep Project Quality:** Documentation, deployment proofs, and architectural complexity inferred by AI.
 
----
+## 🤝 Contributing
+
+Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://www.google.com/search?q=https://github.com/yourusername/portfolio-auditor/issues).
+
+## 📝 License
+
+This project is [MIT](https://choosealicense.com/licenses/mit/) licensed.
+
+```
+
+```
