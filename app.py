@@ -4,6 +4,7 @@ import requests
 import re
 import json
 import subprocess
+import time
 from PyPDF2 import PdfReader
 from datetime import datetime, timedelta
 
@@ -104,7 +105,7 @@ def analyze_github(username):
     except Exception as e:
         return 0, {}, str(e)
 
-# --- PHASE 2: KAGGLE (REAL-TIME PLAYWRIGHT SCRAPER) ---
+# --- PHASE 2: KAGGLE (STEALTH PLAYWRIGHT SCRAPER) ---
 def deep_analyze_kaggle(username_or_url):
     from playwright.sync_api import sync_playwright
     if not username_or_url: return 0, {}, "No Kaggle Profile Provided"
@@ -112,20 +113,54 @@ def deep_analyze_kaggle(username_or_url):
     username = username_or_url.split("kaggle.com/")[-1].split("/")[0].replace("@", "").strip()
     target_url = f"https://www.kaggle.com/{username}"
     
+    html = ""
+    max_retries = 3  # ถ้ารอบแรกติดระบบป้องกัน มันจะพยายามใหม่ทันทีสลับกันไป
+    
+    for attempt in range(max_retries):
+        try:
+            with sync_playwright() as p:
+                # 🛠️ เทคนิค 1: ใส่ Args พิเศษเพื่อหลอกลวงเบราว์เซอร์ลบรอยเท้าความเป็นบอท
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox"
+                    ]
+                )
+                context = browser.new_context(
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                    viewport={"width": 1440, "height": 900},
+                    locale="en-US"
+                )
+                page = context.new_page()
+                
+                # 🛠️ เทคนิค 2: ฉีด Script ลบตัวตนบอท (หลบการเช็ค navigator.webdriver)
+                page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+                
+                # ทำการเปิดหน้าเว็บ (เปลี่ยนเป็นรอดึงข้อมูลโครงสร้างหลัก แล้วค่อยหน่วงเวลาให้ผ่านด่านตรวจ)
+                page.goto(target_url, wait_until="commit", timeout=30000)
+                page.wait_for_timeout(4000)  # ปล่อยให้เวลาเดินเพื่อทำ JavaScript Challenge เงียบๆ
+                
+                html = page.content()
+                browser.close()
+            
+            # ถ้าดึงข้อมูลผ่านและมี JSON ชุดหลัก ให้หลุดออกจากลูปหลบภัยทันที
+            if "__NEXT_DATA__" in html and "Just a moment" not in html:
+                break
+                
+            # หากยังติดบล็อก ให้หลับแป๊บนึงแล้วลองใหม่รอบหน้า
+            time.sleep(2)
+        except Exception as e:
+            if attempt == max_retries - 1:
+                return 30, {}, f"Playwright Connection Error: {str(e)}"
+            time.sleep(2)
+
+    if "Just a moment" in html or "__NEXT_DATA__" not in html:
+        return 30, {}, "⚠️ ระบบ Cloudflare บล็อกอย่างหนาแน่น (กรุณากดรันใหม่อีกครั้งเพื่อเปลี่ยนสตรีม)"
+
     try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            context = browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            )
-            page = context.new_page()
-            page.goto(target_url, wait_until="networkidle", timeout=30000)
-            html = page.content()
-            browser.close()
-
-        if "Just a moment" in html or "__NEXT_DATA__" not in html:
-            return 30, {}, "⚠️ Cloudflare บล็อกชั่วคราว (กรุณากดรันใหม่อีกครั้ง)"
-
+        # 🔍 แกะข้อมูลโครงสร้างภายใน JSON
         json_match = re.search(r'<script id="__NEXT_DATA__" type="application/json">({.*?})</script>', html)
         if not json_match:
             return 30, {}, "⚠️ ไม่พบโครงสร้างข้อมูลโปรไฟล์ของยูสเซอร์นี้"
@@ -158,10 +193,10 @@ def deep_analyze_kaggle(username_or_url):
             "notebooks": notebooks, "gold": gold, "silver": silver, "bronze": bronze, "best_rank": best_rank
         }
         
-        return int(final_score), metrics, "💡 ดึงข้อมูลสดสำเร็จด้วย Playwright Engine!"
+        return int(final_score), metrics, "💡 ดึงข้อมูลสดสำเร็จด้วย Playwright Stealth Mode!"
 
     except Exception as e:
-        return 30, {}, f"Playwright Error: {str(e)}"
+        return 30, {}, f"Scraping Error: {str(e)}"
 
 # --- PHASE 3: PORTFOLIO AUDIT (RESUME) ---
 def local_audit_resume(text):
