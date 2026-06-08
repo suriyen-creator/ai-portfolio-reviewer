@@ -2,4 +2,3 @@ streamlit
 google-generativeai
 requests
 PyPDF2
-playwright
