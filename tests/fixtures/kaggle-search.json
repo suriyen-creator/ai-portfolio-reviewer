@@ -1,0 +1,20 @@
+{
+  "documents": [{
+    "id": 4487,
+    "documentType": "COMPETITION",
+    "title": "Springleaf Marketing Response",
+    "slug": "springleaf-marketing-response",
+    "isPrivate": false,
+    "medal": "GOLD",
+    "enrichedInfo": {"url": "/competitions/springleaf-marketing-response"},
+    "competitionDocument": {
+      "deadline": "2015-10-19T23:59:00Z",
+      "teamCount": 2221,
+      "teamRank": 2,
+      "ownerUserHasJoined": true,
+      "participantUserId": 5309
+    }
+  }],
+  "totalDocuments": 1,
+  "nextPageToken": ""
+}

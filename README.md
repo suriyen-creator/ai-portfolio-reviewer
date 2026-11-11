@@ -1,97 +1,58 @@
-# Evidence-Based Portfolio Auditor (HR Edition)
+# Portfolio Review
 
-## Screenshots
+A Streamlit app for reviewing GitHub projects, PDF resumes and public Kaggle competition results. Supports Thai and English, with separate scoring weights for Software and Data/ML candidates.
 
-<p align="center"><img src="screenshot/Screenshot_20261112_005154.png" alt="ai-portfolio-reviewer screenshot 1" width="100%"></p>
-
-<p align="center"><img src="screenshot/Screenshot_20261112_005225.png" alt="ai-portfolio-reviewer screenshot 2" width="100%"></p>
-
-An enterprise-grade, AI-powered evaluation system designed for Technical Recruiters and HR professionals. This tool shifts away from synthetic heuristic scores and relies **100% on verifiable evidence**, analyzing live GitHub data and candidate resumes to generate transparent, recruiter-trusted evaluations.
-
- **Live Demo:** [Try the App Here](https://ai-portfolio-reviewer-7romvlv56av4x9d2pcm3ar.streamlit.app/)
-
-## Why This Tool Exists
-
-Recruiters don't trust black-box "AI scores." They need traceability, evidence, and logical breakdowns. This system evaluates software engineering candidates by cross-referencing their **PDF Resumes** with their **Real-time GitHub Repositories** using the Gemini LLM. Every score is backed by a specific piece of evidence, eliminating AI hallucination and guesswork.
-
-## Key Features
-
-* ** Live GitHub Evidence Gathering:** Fetches real-time metrics via the GitHub API (active repositories, 90-day commit consistency, stars, and language diversity).
-* ** Intelligent Resume Parsing:** Extracts raw text from PDF resumes and audits them for clarity, project counts, and structural weaknesses.
-* ** Skills Inference Engine:** Cross-references resume claims with GitHub repositories to automatically deduce technical skills and categorize them by proficiency ( Advanced,  Intermediate,  Basic).
-* ** Project Evidence Viewer:** Drills down into specific projects to verify technical depth. Automatically detects the presence of `README.md`, API integrations, deployment links, and CI/CD pipelines.
-* ** HR Recommendation Engine:** Provides actionable "Next Steps" for the recruiter or constructive feedback for the candidate based solely on missing evidence.
-* ** System Confidence Score:** Displays a trust metric (High/Medium/Low) based on the volume of verifiable data provided.
-
-## Tech Stack
-
-* **Frontend & Framework:** [Streamlit](https://streamlit.io/)
-* **AI / LLM Engine:** [Google Gemini 2.5 Flash](https://ai.google.dev/) (`google-generativeai`)
-* **Data Retrieval:** REST APIs (`requests`), GitHub API
-* **PDF Processing:** `PyPDF2`
-
-## Installation & Setup
-
-**1. Clone the repository**
-```bash
-git clone [https://github.com/yourusername/portfolio-auditor.git](https://github.com/yourusername/portfolio-auditor.git)
-cd portfolio-auditor
-
-```
-
-**2. Install dependencies**
+## Run locally
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-
+streamlit run app.py
 ```
 
-*(Ensure your `requirements.txt` includes: `streamlit`, `google-generativeai`, `requests`, `PyPDF2`)*
-
-**3. Configure Environment Secrets**
-Create a `.streamlit/secrets.toml` file in the root directory to store your API keys securely.
+Configure `.streamlit/secrets.toml` (or environment variables):
 
 ```toml
-# .streamlit/secrets.toml
-GEMINI_API_KEY = "AIzaSyYourGeminiKeyHere..."
-GITHUB_TOKEN = "ghp_YourGitHubPersonalAccessTokenHere..."
-
+GEMINI_API_KEY = "your-gemini-api-key"
+GITHUB_TOKEN = "your-github-token"
 ```
 
-> **Note:** A GitHub Personal Access Token (PAT) is highly recommended to prevent API rate-limiting when analyzing multiple candidates.
+Both keys are optional for starting the app. Gemini is required for resume scoring, project quality estimates and written feedback. A GitHub token raises the API rate limit. Without Gemini, public evidence and available factual scores still display. Do not commit credentials.
 
-**4. Run the Application Locally**
+## Use
+
+1. Enter a GitHub username/profile URL, a Kaggle username/profile URL, or upload a resume. Any source is optional; provide at least one.
+2. Choose **Software** or **Data/ML** and select Thai or English.
+3. Click **Review portfolio** and inspect the evidence links, source statuses and applied weights.
+
+PDF limits: 10 MB, 30 pages, 60,000 extracted characters. Scanned PDFs without extractable text require a text-based copy. PDF text and inspected project evidence are sent to Gemini when configured. Resume/review data remain in Streamlit session state, not an application database; public API responses are cached in memory for one hour, with at most 128 entries per source.
+
+## Evidence and limits
+
+- GitHub statistics cover at most 100 recently updated public repositories, including forks. The app inspects README files and `.github/workflows` for at most five repositories. An existing workflow does not prove it passes, a homepage does not prove deployment, and a repository language does not establish proficiency.
+- “Updated in 90 days” uses repository update timestamps, **not commit counts**. The GitHub score preserves the existing heuristic: `min(repos × 5, 40) + min(updated_repos × 15, 40) + min(stars × 5, 20)`.
+- Resume completeness and project quality scores are AI estimates. Written feedback references supplied source IDs; resume statements remain self-reported. Project quality is unscored without readable README content.
+- Kaggle retrieval uses public information only, without candidate credentials or paid services. The app uses the same unauthenticated JSON profile/search requests observed on Kaggle’s public competition page (verified 2026-11-12), with participant-only, completed, public and profile-visible filters. It checks the returned participant identity and follows pagination up to 1,000 results. Access restrictions, rate limits and website changes can prevent or limit retrieval. Hidden/private results are outside coverage. A failed request never means the candidate lacks competition experience.
+- Placements are **team results**, not evidence of each member’s contribution. Missing rank/date/medal fields are not invented. Undocumented website interfaces can change.
+- The app reports evidence availability instead of an uncalibrated numerical “confidence”. Scores are a portfolio review aid, not a hiring verdict or verified measure of ability.
+
+## Scoring
+
+| Track | GitHub | Resume | Project quality | Kaggle |
+|---|---:|---:|---:|---:|
+| Software | 40% | 25% | 25% | 10% |
+| Data/ML | 20% | 25% | 25% | 30% |
+
+Kaggle: for explicitly verified final results from completed competitions, compute `100 × (teams − rank) / (teams − 1)` and average the best three, or all eligible results if fewer than three. At least two teams and a valid rank are required. Medals do not add points. This is an **app-specific formula**, not [official Kaggle points](https://www.kaggle.com/progression/competitions).
+
+If a component cannot be scored, its value is absent, **not zero**. Remaining weights are normalized and displayed alongside the configured weights. An actual zero remains included. If nothing can be scored, no overall score is displayed. Incomplete reports should not be directly compared with complete reports.
+
+## Tests
 
 ```bash
-streamlit run app.py
-
+pip install -r requirements-dev.txt
+python -m pytest -q
 ```
 
-## How to Use (Recruiter Workflow)
-
-1. **Access the platform:** Open the [Live Demo](https://ai-portfolio-reviewer-7romvlv56av4x9d2pcm3ar.streamlit.app/) or run it locally.
-2. **Input Data:** Enter the candidate's GitHub username (without the `@`) and upload their latest Resume/CV (PDF format).
-3. **Execute Audit:** Click *“Extract Evidence & Analyze ”*.
-4. **Review the Verdict:**
-* Check the **Overall Validated Score** and the **System Confidence**.
-* Scan the **Skills Extracted** to see if their tech stack matches your job description.
-* Open the **Project Evidence Viewer** to see if they actually deploy their code and write documentation.
-* Read the **HR Next Step Recommendations** for final decision-making.
-
-
-
-## Scoring Architecture
-
-The overall score is a weighted average of three verifiable pillars:
-
-* **40% GitHub Evidence:** Repository volume, recency of commits, and code metrics.
-* **30% Resume Evidence:** Clarity, project quantification, and skill relevance.
-* **30% Deep Project Quality:** Documentation, deployment proofs, and architectural complexity inferred by AI.
-
-## Contributing
-
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://www.google.com/search?q=https://github.com/yourusername/portfolio-auditor/issues).
-
-## License
-
-This project is [MIT](https://choosealicense.com/licenses/mit/) licensed.
+Unit tests cover parsers, scores, external service failures, PDF failures, LLM response validation and Streamlit session interactions. Tests mock external services and do not need credentials. Browser checks additionally need `playwright install chromium`.
