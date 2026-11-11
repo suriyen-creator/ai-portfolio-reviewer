@@ -2,9 +2,9 @@
 
 ## Screenshots
 
-![ai-portfolio-reviewer screenshot 1](/home/bestz/Projects/ai-portfolio-reviewer/screenshot/Screenshot_20261112_005154.png)
+<p align="center"><img src="screenshot/Screenshot_20261112_005154.png" alt="ai-portfolio-reviewer screenshot 1" width="100%"></p>
 
-![ai-portfolio-reviewer screenshot 2](/home/bestz/Projects/ai-portfolio-reviewer/screenshot/Screenshot_20261112_005225.png)
+<p align="center"><img src="screenshot/Screenshot_20261112_005225.png" alt="ai-portfolio-reviewer screenshot 2" width="100%"></p>
 
 An enterprise-grade, AI-powered evaluation system designed for Technical Recruiters and HR professionals. This tool shifts away from synthetic heuristic scores and relies **100% on verifiable evidence**, analyzing live GitHub data and candidate resumes to generate transparent, recruiter-trusted evaluations.
 
