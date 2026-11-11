@@ -1,30 +1,36 @@
-# 🕵️‍♂️ Evidence-Based Portfolio Auditor (HR Edition)
+# Evidence-Based Portfolio Auditor (HR Edition)
+
+## Screenshots
+
+![ai-portfolio-reviewer screenshot 1](/home/bestz/Projects/ai-portfolio-reviewer/screenshot/Screenshot_20261112_005154.png)
+
+![ai-portfolio-reviewer screenshot 2](/home/bestz/Projects/ai-portfolio-reviewer/screenshot/Screenshot_20261112_005225.png)
 
 An enterprise-grade, AI-powered evaluation system designed for Technical Recruiters and HR professionals. This tool shifts away from synthetic heuristic scores and relies **100% on verifiable evidence**, analyzing live GitHub data and candidate resumes to generate transparent, recruiter-trusted evaluations.
 
-🎯 **Live Demo:** [Try the App Here](https://ai-portfolio-reviewer-7romvlv56av4x9d2pcm3ar.streamlit.app/)
+ **Live Demo:** [Try the App Here](https://ai-portfolio-reviewer-7romvlv56av4x9d2pcm3ar.streamlit.app/)
 
-## 🚀 Why This Tool Exists
+## Why This Tool Exists
 
 Recruiters don't trust black-box "AI scores." They need traceability, evidence, and logical breakdowns. This system evaluates software engineering candidates by cross-referencing their **PDF Resumes** with their **Real-time GitHub Repositories** using the Gemini LLM. Every score is backed by a specific piece of evidence, eliminating AI hallucination and guesswork.
 
-## ✨ Key Features
+## Key Features
 
-* **🐙 Live GitHub Evidence Gathering:** Fetches real-time metrics via the GitHub API (active repositories, 90-day commit consistency, stars, and language diversity).
-* **📄 Intelligent Resume Parsing:** Extracts raw text from PDF resumes and audits them for clarity, project counts, and structural weaknesses.
-* **🧠 Skills Inference Engine:** Cross-references resume claims with GitHub repositories to automatically deduce technical skills and categorize them by proficiency (🟢 Advanced, 🟡 Intermediate, ⚪ Basic).
-* **🚀 Project Evidence Viewer:** Drills down into specific projects to verify technical depth. Automatically detects the presence of `README.md`, API integrations, deployment links, and CI/CD pipelines.
-* **📌 HR Recommendation Engine:** Provides actionable "Next Steps" for the recruiter or constructive feedback for the candidate based solely on missing evidence.
-* **🛡️ System Confidence Score:** Displays a trust metric (High/Medium/Low) based on the volume of verifiable data provided.
+* ** Live GitHub Evidence Gathering:** Fetches real-time metrics via the GitHub API (active repositories, 90-day commit consistency, stars, and language diversity).
+* ** Intelligent Resume Parsing:** Extracts raw text from PDF resumes and audits them for clarity, project counts, and structural weaknesses.
+* ** Skills Inference Engine:** Cross-references resume claims with GitHub repositories to automatically deduce technical skills and categorize them by proficiency ( Advanced,  Intermediate,  Basic).
+* ** Project Evidence Viewer:** Drills down into specific projects to verify technical depth. Automatically detects the presence of `README.md`, API integrations, deployment links, and CI/CD pipelines.
+* ** HR Recommendation Engine:** Provides actionable "Next Steps" for the recruiter or constructive feedback for the candidate based solely on missing evidence.
+* ** System Confidence Score:** Displays a trust metric (High/Medium/Low) based on the volume of verifiable data provided.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 * **Frontend & Framework:** [Streamlit](https://streamlit.io/)
 * **AI / LLM Engine:** [Google Gemini 2.5 Flash](https://ai.google.dev/) (`google-generativeai`)
 * **Data Retrieval:** REST APIs (`requests`), GitHub API
 * **PDF Processing:** `PyPDF2`
 
-## ⚙️ Installation & Setup
+## Installation & Setup
 
 **1. Clone the repository**
 ```bash
@@ -61,11 +67,11 @@ streamlit run app.py
 
 ```
 
-## 🎯 How to Use (Recruiter Workflow)
+## How to Use (Recruiter Workflow)
 
 1. **Access the platform:** Open the [Live Demo](https://ai-portfolio-reviewer-7romvlv56av4x9d2pcm3ar.streamlit.app/) or run it locally.
 2. **Input Data:** Enter the candidate's GitHub username (without the `@`) and upload their latest Resume/CV (PDF format).
-3. **Execute Audit:** Click *“Extract Evidence & Analyze 🚀”*.
+3. **Execute Audit:** Click *“Extract Evidence & Analyze ”*.
 4. **Review the Verdict:**
 * Check the **Overall Validated Score** and the **System Confidence**.
 * Scan the **Skills Extracted** to see if their tech stack matches your job description.
@@ -74,7 +80,7 @@ streamlit run app.py
 
 
 
-## ⚖️ Scoring Architecture
+## Scoring Architecture
 
 The overall score is a weighted average of three verifiable pillars:
 
@@ -82,10 +88,10 @@ The overall score is a weighted average of three verifiable pillars:
 * **30% Resume Evidence:** Clarity, project quantification, and skill relevance.
 * **30% Deep Project Quality:** Documentation, deployment proofs, and architectural complexity inferred by AI.
 
-## 🤝 Contributing
+## Contributing
 
 Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://www.google.com/search?q=https://github.com/yourusername/portfolio-auditor/issues).
 
-## 📝 License
+## License
 
 This project is [MIT](https://choosealicense.com/licenses/mit/) licensed.
