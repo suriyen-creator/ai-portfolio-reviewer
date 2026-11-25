@@ -6,6 +6,12 @@ from typing import Any, Literal
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / '_core'))
 
+try:  # Local development only: python-dotenv is a dev dependency; Vercel injects env vars itself.
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parents[1] / '.env')
+except ImportError:
+    pass
+
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
