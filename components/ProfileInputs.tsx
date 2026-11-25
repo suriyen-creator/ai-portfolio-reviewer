@@ -1,18 +1,32 @@
 'use client';
-import { useRef, useState } from 'react';
-import { FileText, Trophy, Upload, X } from 'lucide-react';
+import { useRef, useState, type ReactNode } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useLang } from '@/lib/i18n';
-import { Field, Github, TextInput, cx } from './ui';
+import { TextInput, cx } from './ui';
 
 export interface ProfileValue { github: string; kaggle: string; file: File | null }
 export const emptyProfile: ProfileValue = { github: '', kaggle: '', file: null };
 export const MAX_PDF_BYTES = 4_000_000;
 
-export function ProfileInputs({ value, onChange, idPrefix = '' }: { value: ProfileValue; onChange: (v: ProfileValue) => void; idPrefix?: string }) {
+function Row({ index, label, hint, htmlFor, children }: { index: string; label: string; hint?: string; htmlFor?: string; children: ReactNode }) {
+  return (
+    <div className="grid grid-cols-[2.5rem_1fr] gap-x-4 border-t border-rule py-5 sm:grid-cols-[2.5rem_11rem_1fr]">
+      <span className="pt-3 font-mono text-xs text-accent">{index}</span>
+      <label htmlFor={htmlFor} className="pt-2.5 text-sm font-medium sm:pt-3">
+        {label}{hint && <span className="mt-0.5 block font-mono text-[11px] font-normal text-mute">{hint}</span>}
+      </label>
+      <div className="col-start-2 min-w-0 sm:col-start-3">{children}</div>
+    </div>
+  );
+}
+
+export function ProfileInputs({ value, onChange, idPrefix = '', startIndex = 1 }:
+  { value: ProfileValue; onChange: (v: ProfileValue) => void; idPrefix?: string; startIndex?: number }) {
   const { tr } = useLang();
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
   const [error, setError] = useState('');
+  const n = (i: number) => String(startIndex + i).padStart(2, '0');
 
   const pick = (file: File | undefined) => {
     setError('');
@@ -23,47 +37,43 @@ export function ProfileInputs({ value, onChange, idPrefix = '' }: { value: Profi
   };
 
   return (
-    <div className="grid gap-4">
-      <Field label={tr('GitHub username หรือลิงก์โปรไฟล์', 'GitHub username or profile URL')}>
-        <div className="relative">
-          <Github size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <TextInput id={idPrefix + 'github'} className="pl-9" placeholder="octocat" value={value.github}
-            onChange={(e) => onChange({ ...value, github: e.target.value })} autoComplete="off" />
-        </div>
-      </Field>
-      <Field label={tr('Kaggle username หรือลิงก์โปรไฟล์', 'Kaggle username or profile URL')}>
-        <div className="relative">
-          <Trophy size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <TextInput id={idPrefix + 'kaggle'} className="pl-9" placeholder="kaggle.com/username" value={value.kaggle}
-            onChange={(e) => onChange({ ...value, kaggle: e.target.value })} autoComplete="off" />
-        </div>
-      </Field>
-      <Field label={tr('Resume / CV (PDF สูงสุด 4 MB, 30 หน้า)', 'Resume / CV (PDF, up to 4 MB and 30 pages)')}>
-        {value.file ? (
-          <div className="flex items-center gap-3 rounded-xl border border-brand-200 bg-brand-50/60 px-3.5 py-3 dark:border-brand-500/30 dark:bg-brand-500/10">
-            <FileText size={18} className="text-brand-600 dark:text-brand-400" />
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">{value.file.name}</span>
-            <span className="text-xs text-slate-500">{(value.file.size / 1024 / 1024).toFixed(1)} MB</span>
-            <button type="button" aria-label={tr('ลบไฟล์', 'Remove file')} onClick={() => onChange({ ...value, file: null })}
-              className="rounded-md p-1 text-slate-500 hover:bg-white hover:text-rose-600 dark:hover:bg-slate-800"><X size={16} /></button>
-          </div>
-        ) : (
-          <div role="button" tabIndex={0}
-            onClick={() => input.current?.click()}
-            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && input.current?.click()}
-            onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
-            onDragLeave={() => setDrag(false)}
-            onDrop={(e) => { e.preventDefault(); setDrag(false); pick(e.dataTransfer.files[0]); }}
-            className={cx('flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-5 text-center text-sm transition',
-              drag ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/10' : 'border-slate-200 hover:border-brand-400 dark:border-slate-700')}>
-            <Upload size={20} className="text-slate-400" />
-            <span className="font-medium text-slate-600 dark:text-slate-300">{tr('ลากไฟล์มาวาง หรือคลิกเพื่อเลือก', 'Drop a file here or click to browse')}</span>
-            <span className="text-xs text-slate-400">PDF</span>
-          </div>
-        )}
+    <div className="border-b border-rule">
+      <Row index={n(0)} label="GitHub" hint={tr('username หรือลิงก์', 'username or URL')} htmlFor={idPrefix + 'github'}>
+        <TextInput id={idPrefix + 'github'} placeholder="octocat" value={value.github}
+          onChange={(e) => onChange({ ...value, github: e.target.value })} autoComplete="off" spellCheck={false} />
+      </Row>
+      <Row index={n(1)} label="Kaggle" hint={tr('username หรือลิงก์', 'username or URL')} htmlFor={idPrefix + 'kaggle'}>
+        <TextInput id={idPrefix + 'kaggle'} placeholder="kaggle.com/username" value={value.kaggle}
+          onChange={(e) => onChange({ ...value, kaggle: e.target.value })} autoComplete="off" spellCheck={false} />
+      </Row>
+      <Row index={n(2)} label="Resume / CV" hint={tr('PDF ≤ 4 MB, 30 หน้า', 'PDF ≤ 4 MB, 30 pages')}>
+        <AnimatePresence mode="wait" initial={false}>
+          {value.file ? (
+            <motion.div key="file" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+              className="flex items-baseline gap-3 border-b border-ink py-2.5">
+              <span className="min-w-0 flex-1 truncate">{value.file.name}</span>
+              <span className="font-mono text-[11px] text-mute">{(value.file.size / 1024).toFixed(0)} KB</span>
+              <button type="button" onClick={() => onChange({ ...value, file: null })}
+                className="font-mono text-[11px] text-mute underline underline-offset-4 hover:text-accent">{tr('ลบ', 'remove')}</button>
+            </motion.div>
+          ) : (
+            <motion.div key="drop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              role="button" tabIndex={0}
+              onClick={() => input.current?.click()}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && input.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+              onDragLeave={() => setDrag(false)}
+              onDrop={(e) => { e.preventDefault(); setDrag(false); pick(e.dataTransfer.files[0]); }}
+              className={cx('flex cursor-pointer items-baseline justify-between gap-3 border border-dashed px-4 py-4 transition-colors',
+                drag ? 'border-accent bg-accent/5' : 'border-rule hover:border-ink')}>
+              <span className="text-sm">{drag ? tr('ปล่อยไฟล์ได้เลย', 'Drop it') : tr('ลากไฟล์มาวาง หรือคลิกเพื่อเลือก', 'Drop a file, or click to browse')}</span>
+              <span className="font-mono text-[11px] text-mute">.pdf</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <input ref={input} type="file" accept="application/pdf,.pdf" hidden onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }} />
-        {error && <span className="mt-1 block text-xs text-rose-600">{error}</span>}
-      </Field>
+        {error && <p className="mt-2 text-xs text-accent">{error}</p>}
+      </Row>
     </div>
   );
 }

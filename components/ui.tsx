@@ -1,120 +1,171 @@
 'use client';
 import clsx from 'clsx';
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react';
+import { animate, motion, useInView, useReducedMotion } from 'motion/react';
+import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
 
 export const cx = clsx;
+const EASE = [0.2, 0.8, 0.2, 1] as const;
 
-export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return (
-    <section className={cx('rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6',
-      'dark:border-slate-800 dark:bg-slate-900/70', className)}>
-      {children}
-    </section>
-  );
-}
+/* ---------- Typography ---------- */
 
-export function SectionTitle({ icon, children, aside }: { icon?: ReactNode; children: ReactNode; aside?: ReactNode }) {
+/** Small mono label, optionally numbered: "01 — GitHub". */
+export function Eyebrow({ index, children, className }: { index?: string; children: ReactNode; className?: string }) {
   return (
-    <div className="mb-4 flex items-center justify-between gap-3">
-      <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
-        {icon && <span className="text-brand-500">{icon}</span>}{children}
-      </h2>
-      {aside}
+    <div className={cx('font-mono text-[11px] uppercase tracking-caps text-mute', className)}>
+      {index && <span className="text-accent">{index}</span>}{index && <span className="mx-2">—</span>}{children}
     </div>
   );
 }
 
-type Variant = 'primary' | 'secondary' | 'ghost';
-export function Button({ variant = 'primary', className, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
+/** Editorial section: label column on the left, content on the right, hairline on top. */
+export function Section({ index, label, aside, children, className }:
+  { index?: string; label: ReactNode; aside?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <button
-      {...props}
-      className={cx('inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-50',
-        variant === 'primary' && 'bg-brand-600 text-white shadow-sm shadow-brand-600/30 hover:bg-brand-700',
-        variant === 'secondary' && 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700',
-        variant === 'ghost' && 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
-        className)}
-    />
+    <section className={cx('grid gap-6 border-t border-ink py-8 md:grid-cols-12 md:gap-8', className)}>
+      <div className="md:col-span-3">
+        <Eyebrow index={index}>{label}</Eyebrow>
+        {aside && <div className="mt-4">{aside}</div>}
+      </div>
+      <div className="min-w-0 md:col-span-9">{children}</div>
+    </section>
+  );
+}
+
+export function Note({ children, tone = 'muted', className }: { children: ReactNode; tone?: 'muted' | 'warn' | 'info'; className?: string }) {
+  return (
+    <p className={cx('text-xs leading-relaxed',
+      tone === 'muted' && 'text-mute',
+      tone === 'warn' && 'border-l-2 border-warn pl-3 text-ink',
+      tone === 'info' && 'border-l-2 border-accent pl-3 text-ink', className)}>
+      {children}
+    </p>
+  );
+}
+
+/* ---------- Controls ---------- */
+
+type Variant = 'primary' | 'secondary' | 'ghost';
+export function Button({ variant = 'primary', className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
+  return (
+    <button {...props}
+      className={cx('group inline-flex items-center justify-center gap-2 text-sm font-medium transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-40',
+        variant === 'primary' && 'bg-ink px-5 py-3 text-paper hover:bg-accent',
+        variant === 'secondary' && 'border border-ink px-4 py-2 hover:bg-ink hover:text-paper',
+        variant === 'ghost' && 'px-1 py-1 underline decoration-rule underline-offset-4 hover:decoration-accent',
+        className)}>
+      {children}
+    </button>
   );
 }
 
 export function LinkButton({ href, children, className }: { href: string; children: ReactNode; className?: string }) {
   return (
     <a href={href} target="_blank" rel="noopener noreferrer"
-      className={cx('inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:border-brand-400 hover:text-brand-600',
-        'dark:border-slate-700 dark:text-slate-300 dark:hover:text-brand-400', className)}>
-      {children}
+      className={cx('inline-flex items-center gap-1 font-mono text-[11px] text-mute underline decoration-rule underline-offset-4 transition-colors hover:text-accent hover:decoration-accent', className)}>
+      {children}<span aria-hidden>↗</span>
     </a>
-  );
-}
-
-export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">{label}</span>
-      {children}
-      {hint && <span className="mt-1 block text-xs text-slate-500">{hint}</span>}
-    </label>
   );
 }
 
 export function TextInput({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input {...props}
-      className={cx('w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition placeholder:text-slate-400',
-        'focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15 dark:border-slate-700 dark:bg-slate-950', className)} />
+      className={cx('w-full border-0 border-b border-rule bg-transparent px-0 py-2.5 text-base outline-none transition-colors placeholder:text-mute/60',
+        'focus:border-ink focus-visible:outline-none', className)} />
   );
 }
 
+/** Text options with a sliding underline (layoutId), a 21st.dev-style segmented control. */
 export function Segmented<T extends string>({ value, options, onChange, size = 'md' }:
   { value: T; options: { value: T; label: ReactNode }[]; onChange: (v: T) => void; size?: 'sm' | 'md' }) {
+  const id = useId();
   return (
-    <div className="inline-flex rounded-xl bg-slate-100 p-1 dark:bg-slate-800" role="radiogroup">
+    <div className={cx('inline-flex', size === 'sm' ? 'gap-3' : 'gap-5')} role="radiogroup">
       {options.map((o) => (
         <button key={o.value} type="button" role="radio" aria-checked={value === o.value} onClick={() => onChange(o.value)}
-          className={cx('rounded-lg font-medium transition', size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-4 py-1.5 text-sm',
-            value === o.value ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-950 dark:text-white' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200')}>
+          className={cx('relative pb-1 transition-colors', size === 'sm' ? 'font-mono text-xs' : 'text-sm font-medium',
+            value === o.value ? 'text-ink' : 'text-mute hover:text-ink')}>
           {o.label}
+          {value === o.value && (
+            <motion.span layoutId={`seg-${id}`} className="absolute inset-x-0 -bottom-px h-px bg-accent"
+              transition={{ type: 'spring', stiffness: 500, damping: 40 }} />
+          )}
         </button>
       ))}
     </div>
   );
 }
 
-export type Tone = 'good' | 'mid' | 'low' | 'muted' | 'info';
-const tones: Record<Tone, string> = {
-  good: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300',
-  mid: 'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300',
-  low: 'bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-500/10 dark:text-rose-300',
-  muted: 'bg-slate-100 text-slate-600 ring-slate-500/20 dark:bg-slate-800 dark:text-slate-400',
-  info: 'bg-brand-50 text-brand-700 ring-brand-600/20 dark:bg-brand-500/10 dark:text-brand-400',
-};
-export function Badge({ tone = 'muted', children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
-  return <span className={cx('inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset', tones[tone], className)}>{children}</span>;
-}
-
-export function Note({ children, tone = 'muted' }: { children: ReactNode; tone?: 'muted' | 'warn' | 'info' }) {
+export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { value: T; label: ReactNode }[]; value: T; onChange: (v: T) => void }) {
+  const id = useId();
   return (
-    <p className={cx('text-xs leading-relaxed',
-      tone === 'muted' && 'text-slate-500 dark:text-slate-400',
-      tone === 'warn' && 'rounded-xl bg-amber-50 px-3 py-2 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300',
-      tone === 'info' && 'rounded-xl bg-brand-50 px-3 py-2 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400')}>
-      {children}
-    </p>
+    <div className="mb-6 flex gap-6 border-b border-rule" role="tablist">
+      {tabs.map((t) => (
+        <button key={t.value} role="tab" aria-selected={value === t.value} onClick={() => onChange(t.value)}
+          className={cx('relative flex items-center gap-2 pb-3 text-sm font-medium transition-colors',
+            value === t.value ? 'text-ink' : 'text-mute hover:text-ink')}>
+          {t.label}
+          {value === t.value && (
+            <motion.span layoutId={`tab-${id}`} className="absolute inset-x-0 -bottom-px h-0.5 bg-accent"
+              transition={{ type: 'spring', stiffness: 500, damping: 40 }} />
+          )}
+        </button>
+      ))}
+    </div>
   );
 }
 
-export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { value: T; label: ReactNode }[]; value: T; onChange: (v: T) => void }) {
+/* ---------- Status ---------- */
+
+export type Tone = 'good' | 'mid' | 'low' | 'muted' | 'info';
+const toneColor: Record<Tone, string> = { good: 'bg-good', mid: 'bg-warn', low: 'bg-accent', muted: 'bg-mute/40', info: 'bg-ink' };
+
+/** Square marker + text. Replaces pill badges. */
+export function Badge({ tone = 'muted', children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
   return (
-    <div className="mb-5 flex gap-1 border-b border-slate-200 dark:border-slate-800" role="tablist">
-      {tabs.map((t) => (
-        <button key={t.value} role="tab" aria-selected={value === t.value} onClick={() => onChange(t.value)}
-          className={cx('-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition',
-            value === t.value ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200')}>
-          {t.label}
-        </button>
-      ))}
+    <span className={cx('inline-flex items-baseline gap-2 text-xs text-ink', className)}>
+      <span className={cx('inline-block size-2 shrink-0 translate-y-[-1px]', toneColor[tone])} aria-hidden />{children}
+    </span>
+  );
+}
+
+export function Tag({ children, className }: { children: ReactNode; className?: string }) {
+  return <span className={cx('inline-flex items-center border border-rule px-2 py-0.5 font-mono text-[11px] text-mute', className)}>{children}</span>;
+}
+
+/* ---------- Motion ---------- */
+
+/** Fade/slide in once when scrolled into view. */
+export function Reveal({ children, delay = 0, className }: { children: ReactNode; delay?: number; className?: string }) {
+  return (
+    <motion.div className={className} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-40px' }} transition={{ duration: 0.6, ease: EASE, delay }}>
+      {children}
+    </motion.div>
+  );
+}
+
+/** Counts up to `value` when visible (Magic UI / 21st.dev "number ticker" pattern). */
+export function NumberTicker({ value, decimals = 0, className }: { value: number | null; decimals?: number; className?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true });
+  const reduce = useReducedMotion();
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    if (value === null || !inView) return;
+    if (reduce) { setShown(value); return; }
+    const controls = animate(0, value, { duration: 1.1, ease: EASE, onUpdate: setShown });
+    return () => controls.stop();
+  }, [value, inView, reduce]);
+  return <span ref={ref} className={cx('tabular-nums', className)}>{value === null ? '—' : shown.toFixed(decimals)}</span>;
+}
+
+/** Thin bar that grows to `pct` when visible. */
+export function Meter({ pct, tone = 'info', delay = 0 }: { pct: number; tone?: Tone; delay?: number }) {
+  return (
+    <div className="h-[3px] w-full bg-rule">
+      <motion.div className={cx('h-full', toneColor[tone])} initial={{ width: 0 }} whileInView={{ width: `${pct}%` }}
+        viewport={{ once: true }} transition={{ duration: 0.9, ease: EASE, delay }} />
     </div>
   );
 }
