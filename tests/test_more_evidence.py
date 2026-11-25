@@ -33,9 +33,16 @@ def test_no_readme_means_no_ai_project_score():
 
 
 def test_api_output_skill_basis_is_validated():
-    payload = {'project_score':None,'inferred_skills':[{'skill':'Python','basis':'expert','sources':['resume']}], 'recommendations':[]}
+    # Resume-only skills are always claimed; any other unclear basis drops the skill, not the whole review.
+    skills = [{'skill':'Python','basis':'expert','sources':['resume']},
+              {'skill':'FastAPI','basis':'inferred','sources':['github:demo']},
+              {'skill':'Docker','basis':'observed/claimed','sources':['github:demo']},
+              {'skill':'SQL','basis':'observed','sources':['github:demo']}]
+    payload = {'project_score':None,'inferred_skills':skills, 'recommendations':[]}
+    data = validate_analysis(json.dumps(payload),'deep',{'resume','github:demo'})
+    assert [(s['skill'], s['basis']) for s in data['inferred_skills']] == [('Python','claimed'), ('SQL','observed')]
     with pytest.raises(ValueError):
-        validate_analysis(json.dumps(payload),'deep',{'resume'})
+        validate_analysis(json.dumps({**payload,'inferred_skills':[{'skill':5,'basis':'observed','sources':['resume']}]}),'deep',{'resume'})
 
 
 def test_null_project_score_still_validates_source_list():

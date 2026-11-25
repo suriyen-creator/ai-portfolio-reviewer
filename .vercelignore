@@ -1,0 +1,9 @@
+.venv
+__pycache__
+.pytest_cache
+tests
+screenshot
+.env
+.env*.local
+node_modules
+.next

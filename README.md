@@ -1,32 +1,55 @@
 # Portfolio Review
 
-A Streamlit app for reviewing GitHub projects, PDF resumes and public Kaggle competition results. Supports Thai and English, with separate scoring weights for Software and Data/ML candidates.
+A web app for reviewing GitHub projects, PDF resumes and public Kaggle competition results. Supports Thai and English, light/dark themes, and separate scoring weights for Software and Data/ML candidates.
+
+- **Review**: evidence-linked scores, repository checks, Kaggle history and AI feedback.
+- **30/60/90-day plan**: Gemini turns the report's gaps into a development roadmap and project ideas. Only processed findings are sent, never the raw resume text.
+- **Share link**: save a report snapshot and get a `/r/<id>` link (30-day expiry; raw resume text and README contents are stripped). Needs Upstash Redis.
+- **Compare**: review two profiles with the same track, with a radar chart, per-area scores and shared/unique skills.
+
+## Architecture
+
+| Part | Location | Runs as |
+|---|---|---|
+| Frontend | `app/`, `components/`, `lib/` (Next.js + Tailwind) | Vercel (Next.js) |
+| API | `api/index.py` (FastAPI) | Vercel Python function, `maxDuration` 60 s |
+| Evidence, scoring, LLM | `api/_core/evidence.py`, `analysis.py` | imported by the API |
+| Cache and shared reports | `api/_core/store.py` | Upstash Redis REST (optional) |
+
+The browser runs GitHub, Kaggle and resume steps in parallel, then the AI review, so no single function call has to cover the whole pipeline. The overall score is computed client-side by `lib/score.ts`, which mirrors `evidence.weighted_score`.
 
 ## Run locally
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-streamlit run app.py
+.venv/bin/pip install -r requirements-dev.txt
+npm install
+npm run dev          # FastAPI on :8000 + Next.js on :3000 (/api is proxied)
 ```
 
-Configure `.streamlit/secrets.toml` (or environment variables):
+Environment variables (all optional; put them in `.env` for the API or in Vercel project settings):
 
-```toml
-GEMINI_API_KEY = "your-gemini-api-key"
-GITHUB_TOKEN = "your-github-token"
-```
+| Variable | Purpose |
+|---|---|
+| `GEMINI_API_KEY` | Resume scoring, project estimates, written review, roadmap |
+| `GITHUB_TOKEN` | Raises the GitHub API rate limit |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | One-hour evidence cache and share links (`KV_REST_API_URL`/`KV_REST_API_TOKEN` also work) |
 
-Both keys are optional for starting the app. Gemini is required for resume scoring, project quality estimates and written feedback. A GitHub token raises the API rate limit. Without Gemini, public evidence and available factual scores still display. Do not commit credentials.
+Without Gemini, public evidence and factual scores still display. Without Redis, caching is skipped and the share button is hidden. Do not commit credentials.
+
+## Deploy to Vercel
+
+1. Import the repository in Vercel; the framework is detected as Next.js and `vercel.json` routes `/api/*` to `api/index.py`.
+2. Add the environment variables above. For share links, add **Upstash for Redis** from the Vercel Marketplace; it injects the REST variables.
+3. Deploy. Interactive API docs are served at `/api/docs`.
 
 ## Use
 
 1. Enter a GitHub username/profile URL, a Kaggle username/profile URL, or upload a resume. Any source is optional; provide at least one.
-2. Choose **Software** or **Data/ML** and select Thai or English.
-3. Click **Review portfolio** and inspect the evidence links, source statuses and applied weights.
+2. Choose **Software** or **Data/ML** and select Thai or English in the header.
+3. Click **Review portfolio**, inspect the evidence links, then optionally generate a plan, share, or print to PDF.
 
-PDF limits: 10 MB, 30 pages, 60,000 extracted characters. Scanned PDFs without extractable text require a text-based copy. PDF text and inspected project evidence are sent to Gemini when configured. Resume/review data remain in Streamlit session state, not an application database; public API responses are cached in memory for one hour, with at most 128 entries per source.
+PDF limits: 4 MB (Vercel request body limit), 30 pages, 60,000 extracted characters. Scanned PDFs without extractable text require a text-based copy. PDF text and inspected project evidence are sent to Gemini when configured. Resume text stays in the browser tab between steps and is not stored by the server.
 
 ## Evidence and limits
 
@@ -51,8 +74,9 @@ If a component cannot be scored, its value is absent, **not zero**. Remaining we
 ## Tests
 
 ```bash
-pip install -r requirements-dev.txt
-python -m pytest -q
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m pytest -q
+npm run build
 ```
 
-Unit tests cover parsers, scores, external service failures, PDF failures, LLM response validation and Streamlit session interactions. Tests mock external services and do not need credentials. Browser checks additionally need `playwright install chromium`.
+Unit tests cover parsers, scores, external service failures, PDF failures, LLM response validation (including the roadmap schema), every API route and the share store. Tests mock external services and do not need credentials.
