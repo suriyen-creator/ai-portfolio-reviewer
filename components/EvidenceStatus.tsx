@@ -1,8 +1,7 @@
 'use client';
-import { Bot, FileText, Trophy } from 'lucide-react';
 import type { Report } from '@/lib/types';
 import { useLang, useStatusText } from '@/lib/i18n';
-import { Badge, Card, Github, Note, type Tone } from './ui';
+import { Badge, Note, type Tone } from './ui';
 
 export function statusTone(code: string): Tone {
   if (code === 'ok') return 'good';
@@ -15,27 +14,23 @@ export function EvidenceStatus({ report }: { report: Report }) {
   const { tr } = useLang();
   const status = useStatusText();
   const rows = [
-    { icon: <Github size={18} />, name: 'GitHub', code: report.github.status },
-    { icon: <FileText size={18} />, name: 'Resume', code: report.resume.status },
-    { icon: <Trophy size={18} />, name: 'Kaggle', code: report.kaggle.status },
-    { icon: <Bot size={18} />, name: tr('คำรีวิว AI', 'Written review'), code: report.deep.status },
+    { name: 'GitHub', code: report.github.status },
+    { name: 'Resume', code: report.resume.status },
+    { name: 'Kaggle', code: report.kaggle.status },
+    { name: tr('คำรีวิว AI', 'Written review'), code: report.deep.status },
   ];
   return (
-    <Card>
-      <h2 className="mb-4 text-lg font-semibold text-slate-900 dark:text-white">{tr('สถานะข้อมูล', 'Evidence availability')}</h2>
-      <ul className="grid gap-3">
+    <div>
+      <dl className="grid gap-x-8 sm:grid-cols-2">
         {rows.map((r) => (
-          <li key={r.name} className="flex items-start gap-3">
-            <span className="mt-0.5 text-slate-400">{r.icon}</span>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">{r.name}</div>
-              <Badge tone={statusTone(r.code)} className="mt-1">{status(r.code)}</Badge>
-            </div>
-          </li>
+          <div key={r.name} className="flex items-baseline justify-between gap-4 border-b border-rule py-3">
+            <dt className="text-sm font-medium">{r.name}</dt>
+            <dd className="text-right"><Badge tone={statusTone(r.code)}>{status(r.code)}</Badge></dd>
+          </div>
         ))}
-      </ul>
-      <div className="mt-4"><Note>{tr('การนับแหล่งข้อมูลไม่ใช่การวัดความแม่นยำ รายงานนี้จึงไม่แสดงค่าความมั่นใจเป็นเปอร์เซ็นต์',
-        'Source availability does not measure accuracy; no numerical confidence is assigned.')}</Note></div>
-    </Card>
+      </dl>
+      <Note className="mt-3">{tr('การนับแหล่งข้อมูลไม่ใช่การวัดความแม่นยำ รายงานนี้จึงไม่แสดงค่าความมั่นใจเป็นเปอร์เซ็นต์',
+        'Source availability does not measure accuracy; no numerical confidence is assigned.')}</Note>
+    </div>
   );
 }

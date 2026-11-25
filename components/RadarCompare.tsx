@@ -1,10 +1,11 @@
 'use client';
-import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer, Tooltip } from 'recharts';
 import type { Report } from '@/lib/types';
 import { AREAS, summarize } from '@/lib/score';
 import { useAreaLabel } from './ScoreSummary';
 
-export const SIDE_COLORS = ['#6366f1', '#06b6d4'];
+/** Side A is ink, side B is the accent. Colors come from CSS variables so dark mode follows. */
+export const SIDE_COLORS = ['var(--ink)', 'var(--accent)'];
 
 export function RadarCompare({ reports, names }: { reports: Report[]; names: string[] }) {
   const label = useAreaLabel();
@@ -14,14 +15,15 @@ export function RadarCompare({ reports, names }: { reports: Report[]; names: str
     <div className="h-80 w-full">
       <ResponsiveContainer>
         <RadarChart data={data} outerRadius="72%">
-          <PolarGrid className="stroke-slate-200 dark:stroke-slate-700" />
-          <PolarAngleAxis dataKey="area" tick={{ fontSize: 12, fill: 'currentColor' }} />
-          <PolarRadiusAxis domain={[0, 100]} tickCount={5} tick={{ fontSize: 10 }} axisLine={false} />
+          <PolarGrid stroke="var(--rule)" />
+          <PolarAngleAxis dataKey="area" tick={{ fontSize: 12, fill: 'var(--ink)' }} />
+          <PolarRadiusAxis domain={[0, 100]} tickCount={5} tick={{ fontSize: 10, fill: 'var(--mute)' }} axisLine={false} />
           {names.map((n, i) => (
-            <Radar key={n} name={n} dataKey={n} stroke={SIDE_COLORS[i]} fill={SIDE_COLORS[i]} fillOpacity={0.2} strokeWidth={2} />
+            <Radar key={n} name={n} dataKey={n} stroke={SIDE_COLORS[i]} fill={SIDE_COLORS[i]} fillOpacity={i === 0 ? 0.08 : 0.14} strokeWidth={1.5}
+              animationDuration={900} />
           ))}
-          <Tooltip formatter={(v) => (typeof v === 'number' ? v.toFixed(1) : v)} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-          <Legend wrapperStyle={{ fontSize: 13 }} />
+          <Tooltip formatter={(v) => (typeof v === 'number' ? v.toFixed(1) : v)}
+            contentStyle={{ background: 'var(--paper)', border: '1px solid var(--ink)', borderRadius: 0, fontSize: 12 }} />
         </RadarChart>
       </ResponsiveContainer>
     </div>
