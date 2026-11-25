@@ -44,7 +44,10 @@ def result(status, url='', **data):
             'score': None, 'limitations': [], **data}
 
 
-def http_status(code):
+def http_status(code, headers=None):
+    # GitHub signals an exhausted rate limit with 403 plus X-RateLimit-Remaining: 0.
+    if code == 403 and str((headers or {}).get('X-RateLimit-Remaining', '')) == '0':
+        return 'rate_limited'
     return {404: 'not_found', 403: 'blocked', 429: 'rate_limited'}.get(code, 'unavailable')
 
 
@@ -206,11 +209,11 @@ def fetch_github_profile(value, token=''):
     try:
         profile = get(f'/users/{username}')
         if profile.status_code != 200:
-            return result(http_status(profile.status_code), url, samples=[])
+            return result(http_status(profile.status_code, profile.headers), url, samples=[])
         profile_data = profile.json()
         response = get(f'/users/{username}/repos?per_page=100&sort=updated')
         if response.status_code != 200:
-            return result(http_status(response.status_code), url, samples=[])
+            return result(http_status(response.status_code, response.headers), url, samples=[])
         repos = response.json()
         if not isinstance(profile_data, dict) or not isinstance(repos, list) or any(not isinstance(r, dict) for r in repos):
             return result('unavailable', url, samples=[])
@@ -311,11 +314,17 @@ def validate_analysis(raw, kind, source_ids=None):
     for item in skills + recs:
         if not isinstance(item, dict) or not _strings(item.get('sources'), 10) or not item['sources'] or not set(item['sources']) <= sources:
             raise ValueError('invalid_sources')
+    kept = []
     for skill in skills:
-        if not isinstance(skill.get('skill'), str) or len(skill['skill']) > 100 or skill.get('basis') not in ('observed', 'claimed'):
+        if not isinstance(skill.get('skill'), str) or len(skill['skill']) > 100:
             raise ValueError('invalid_skill')
         if set(skill['sources']) == {'resume'}:
             skill['basis'] = 'claimed'
+        elif skill.get('basis') not in ('observed', 'claimed'):
+            # Unclear basis (e.g. "inferred") cannot be shown as observed; drop the skill, keep the review.
+            continue
+        kept.append(skill)
+    data['inferred_skills'] = kept
     project_sources = data.get('project_sources', [])
     if not _strings(project_sources, 5) or not set(project_sources) <= {s for s in sources if s.startswith('github:')}:
         raise ValueError('invalid_project_sources')
@@ -339,8 +348,10 @@ def _validate_roadmap(data, sources):
             raise ValueError('invalid_roadmap')
         for goal in goals:
             if (not isinstance(goal, dict) or not isinstance(goal.get('text'), str) or not 1 <= len(goal['text']) <= 600
-                    or not _strings(goal.get('sources'), 6) or not goal['sources'] or not set(goal['sources']) <= sources):
-                raise ValueError('invalid_sources')
+                    or not _strings(goal.get('sources'), 6)):
+                raise ValueError('invalid_roadmap')
+            # Plan goals are not scored, so unknown citations are dropped instead of rejecting the plan.
+            goal['sources'] = [src for src in goal['sources'] if src in sources] or ['findings']
     for idea in ideas:
         if (not isinstance(idea, dict) or not isinstance(idea.get('title'), str) or not 1 <= len(idea['title']) <= 120
                 or not isinstance(idea.get('why'), str) or not 1 <= len(idea['why']) <= 600 or not _strings(idea.get('skills'), 8)):

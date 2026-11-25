@@ -6,7 +6,7 @@ import { Badge, Card, Github, Note, type Tone } from './ui';
 
 export function statusTone(code: string): Tone {
   if (code === 'ok') return 'good';
-  if (code === 'partial' || code === 'empty') return 'mid';
+  if (['partial', 'empty', 'rate_limited', 'ai_rate_limited'].includes(code)) return 'mid';
   if (code === 'not_provided' || code === 'ai_unconfigured') return 'muted';
   return 'low';
 }

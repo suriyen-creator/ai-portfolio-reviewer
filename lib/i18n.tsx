@@ -17,6 +17,7 @@ export const STATUS: Record<string, Pair> = {
   invalid_username: ['รูปแบบ username หรือลิงก์ไม่ถูกต้อง', 'Invalid username or profile URL'],
   ai_unconfigured: ['ยังไม่ได้ตั้งค่า GEMINI_API_KEY จึงยังไม่มีคำรีวิวจาก AI', 'Set GEMINI_API_KEY to enable the written review'],
   ai_unavailable: ['บริการรีวิวไม่พร้อมใช้งาน ลองวิเคราะห์ใหม่ภายหลัง', 'Review service unavailable; try again later'],
+  ai_rate_limited: ['โควตา AI เต็มชั่วคราว รอสักครู่แล้วลองใหม่', 'AI quota reached; wait a minute and try again'],
   invalid_response: ['บริการรีวิวส่งข้อมูลไม่ครบ จึงยังไม่นำมาคิดคะแนน', 'Review response was invalid and excluded from scoring'],
   pdf_unreadable: ['อ่าน PDF ไม่ได้ กรุณาตรวจไฟล์หรือส่งไฟล์ที่ไม่เข้ารหัส', 'Cannot read this PDF; check the file or use an unencrypted copy'],
   pdf_no_text: ['PDF ไม่มีข้อความที่อ่านได้ กรุณาใช้ไฟล์ที่เลือกข้อความได้', 'No extractable text; use a text-based PDF'],

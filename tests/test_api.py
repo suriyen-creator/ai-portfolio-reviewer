@@ -70,7 +70,7 @@ def test_roadmap_ok_and_sources_validated(monkeypatch):
         data = client.post('/api/roadmap', json={'report':report}).json()
     assert data['status'] == 'ok' and len(data['phases']) == 3
     assert 'secret readme' not in generate.call_args[0][0]
-    bad = {**ROADMAP, 'phases':[{'window':w,'goals':[{'text':'x','sources':['made-up']}]} for w in ('30','60','90')]}
+    bad = {**ROADMAP, 'phases':ROADMAP['phases'][:1] * 3}
     with patch('analysis.generate_json', return_value=json.dumps(bad)):
         assert client.post('/api/roadmap', json={'report':report}).json()['status'] == 'invalid_response'
 
@@ -116,3 +116,39 @@ def test_report_roundtrip_with_fake_redis(monkeypatch):
 
 def test_report_id_validation():
     assert store.load_report('../etc') is None
+
+
+def test_roadmap_drops_unknown_sources(monkeypatch):
+    monkeypatch.setenv('GEMINI_API_KEY', 'fake')
+    payload = {**ROADMAP, 'phases':[{'window':w,'goals':[{'text':'x','sources':['made-up','github:demo']}]} for w in ('30','60','90')]}
+    with patch('analysis.generate_json', return_value=json.dumps(payload)) as generate:
+        data = client.post('/api/roadmap', json={'report':{'github':GITHUB}}).json()
+    assert data['status'] == 'ok'
+    assert all(g['sources'] == ['github:demo'] for p in data['phases'] for g in p['goals'])
+    assert 'Allowed source IDs' in generate.call_args[0][0]
+
+
+def test_github_rate_limit_403_is_reported_as_rate_limited():
+    from unittest.mock import Mock
+    from evidence import fetch_github_profile
+    limited = Mock(status_code=403, headers={'X-RateLimit-Remaining':'0'})
+    with patch('evidence.requests.get', return_value=limited):
+        assert fetch_github_profile('person')['status'] == 'rate_limited'
+    with patch('evidence.requests.get', return_value=Mock(status_code=403, headers={})):
+        assert fetch_github_profile('person')['status'] == 'blocked'
+
+
+def test_ai_review_sends_only_best_kaggle_rows():
+    from analysis import _sources, MAX_KAGGLE_ROWS_FOR_AI
+    rows = [{'url':f'https://www.kaggle.com/competitions/c{i}','rank':i,'teams':100,'completed':True,'final':True} for i in range(1, 41)]
+    ids = set(_sources('', {'samples':[]}, {'competitions':rows[::-1]}))
+    assert len(ids) == MAX_KAGGLE_ROWS_FOR_AI and 'kaggle:c1' in ids and 'kaggle:c40' not in ids
+
+
+def test_gemini_quota_error_is_reported_separately(monkeypatch):
+    monkeypatch.setenv('GEMINI_API_KEY', 'fake')
+    ResourceExhausted = type('ResourceExhausted', (Exception,), {})
+    with patch('analysis.generate_json', side_effect=ResourceExhausted('429 quota')):
+        assert client.post('/api/review', json={'github':GITHUB}).json()['status'] == 'ai_rate_limited'
+    with patch('analysis.generate_json', side_effect=RuntimeError('boom')):
+        assert client.post('/api/review', json={'github':GITHUB}).json()['status'] == 'ai_unavailable'
