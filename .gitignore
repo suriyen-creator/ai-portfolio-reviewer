@@ -1,4 +1,9 @@
-.streamlit/secrets.toml
 __pycache__/
+node_modules/
 .env
-quota_db.json
+.next/
+.venv/
+.vercel/
+.env*.local
+next-env.d.ts
+*.tsbuildinfo

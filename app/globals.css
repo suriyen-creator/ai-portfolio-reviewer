@@ -1,0 +1,31 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: var(--font-inter), var(--font-thai), ui-sans-serif, system-ui, sans-serif;
+  --color-brand-50: oklch(0.97 0.02 275);
+  --color-brand-100: oklch(0.93 0.04 275);
+  --color-brand-400: oklch(0.70 0.16 275);
+  --color-brand-500: oklch(0.60 0.20 275);
+  --color-brand-600: oklch(0.52 0.21 275);
+  --color-brand-700: oklch(0.45 0.19 275);
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200;
+  }
+  ::selection { @apply bg-brand-500/25; }
+}
+
+.bg-grid {
+  background-image:
+    radial-gradient(60rem 30rem at 15% -10%, oklch(0.60 0.20 275 / 0.18), transparent 70%),
+    radial-gradient(50rem 25rem at 95% 0%, oklch(0.70 0.15 200 / 0.14), transparent 70%);
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+}

@@ -21,3 +21,21 @@ Final verification (2026-11-12):
 - Live Gemini generation was not exercised with a real API key. Mocked success, invalid JSON/schema, service errors and zero scores are covered.
 
 Implementation detail: standard Streamlit inputs inside a bordered container replace the batching form so language changes retain candidate drafts; evidence requests still run only on the review button.
+
+## 2026-11-25: Vercel migration, redesign and new features
+
+Approved intent: move off Streamlit (cannot run on Vercel) to Next.js + a FastAPI Python function, redesign the UI, and add share links, two-profile comparison and an AI 30/60/90-day plan.
+
+Ruling: keep `evidence.py`/`analysis.py` logic and move them to `api/_core/` (underscore folder is not routed by Vercel). `analyze()` is kept as a wrapper over the new `review_resume()`/`review_deep()` so existing tests still apply.
+Ruling: split the pipeline into `/api/github`, `/api/kaggle`, `/api/resume`, `/api/review`; the browser runs the first three in parallel. This keeps each function call well under the 60 s limit.
+Ruling: PDF limit lowered from 10 MB to 4 MB because Vercel rejects request bodies over ~4.5 MB.
+Ruling: storage is Upstash Redis over REST via `requests` (no extra SDK). Shared reports drop `resume_text` and README contents. Every store call is a no-op when unconfigured.
+Ruling: the roadmap prompt receives only processed findings (scores, weaknesses, skills, recommendations, repo check flags), and its goals must cite known source IDs or `findings`.
+Ruling: hand-written Tailwind components instead of the shadcn/ui CLI, to avoid generated boilerplate; lucide-react no longer ships brand logos, so the GitHub mark is inlined.
+Removed: `app.py` and `tests/test_app.py` (Streamlit AppTest).
+
+Verification (2026-11-25):
+- `pytest -q`: 58 passed (42 existing + 16 new API tests).
+- `npm run build`: passed (Next.js 16, TypeScript).
+- Live via `next dev` + uvicorn: GitHub (octocat) and Kaggle (cdeotte) fetched through the `/api` proxy; Chromium screenshots of the home page, report (light and dark) and the compare page at 390 px.
+- Not exercised live: Gemini (no key), Upstash Redis (mocked in tests), and an actual Vercel deployment.
